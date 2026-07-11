@@ -1,0 +1,88 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "prismal-sdk"
+version = "0.1.0.dev0"
+description = "Typed Python client (REST + SSE, A2A JSON-RPC) for prismal-server."
+readme = "README.md"
+# Deliberately wider than the engine's >=3.13 floor — the SDK has zero
+# runtime coupling to prismal/prismal-server (see ARCHITECTURE.md ADR-004).
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Ernesto Crespo", email = "ecrespo@gmail.com" }]
+keywords = ["prismal", "sdk", "client", "sse", "a2a", "httpx"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+# HTTP + typed models only. NEVER add prismal-ai / prismal-server here —
+# see CLAUDE.md "the one hard rule".
+dependencies = [
+    "httpx>=0.27",
+    "pydantic>=2.5",
+    "pydantic-settings>=2.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "respx>=0.21",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[project.urls]
+Homepage = "https://github.com/prismal-ai/prismal-sdk"
+Repository = "https://github.com/prismal-ai/prismal-sdk"
+Engine = "https://github.com/prismal-ai/prismal"
+Server = "https://github.com/prismal-ai/prismal-server"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/prismal_sdk"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/prismal_sdk", "README.md", "LICENSE"]
+
+# ── Tooling ────────────────────────────────────────────────────────────────
+
+[tool.ruff]
+src = ["src", "tests"]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "W"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["prismal_sdk"]
+
+[tool.mypy]
+python_version = "3.10"
+mypy_path = "src"
+packages = ["prismal_sdk"]
+strict = true
+warn_unused_ignores = true
+warn_return_any = true
+no_implicit_reexport = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers -m 'not contract'"
+markers = [
+    "contract: opt-in smoke tests against a running prismal-server (deselected by default)",
+]
+# Unit suite runs with no network; the contract suite is opt-in.
+# Run unit only:      uv run pytest -m 'not contract'
+# Run contract suite: uv run pytest -m contract
