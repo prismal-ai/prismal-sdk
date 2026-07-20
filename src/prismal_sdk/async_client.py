@@ -22,6 +22,7 @@ from prismal_sdk._sse import aiter_sse_events
 from prismal_sdk._transport import (
     backoff_delay_s,
     build_headers,
+    decode_json,
     extract_detail,
     is_retryable,
     raise_for_response,
@@ -60,7 +61,7 @@ class _AsyncA2AResource:
         )
         _raise_if_a2a_not_enabled(response)
         raise_for_response(response)
-        return _a2a.parse_jsonrpc_response(response.json())
+        return _a2a.parse_jsonrpc_response(decode_json(response))
 
     async def stream(
         self,
@@ -184,7 +185,7 @@ class AsyncPrismalClient:
                     method, path, json=json_body, headers=headers
                 )
             except httpx.HTTPError as exc:
-                if attempt < self._max_retries and is_retryable(method, exc):
+                if attempt < self._max_retries and is_retryable(method, path, exc):
                     await asyncio.sleep(backoff_delay_s(attempt))
                     attempt += 1
                     continue
@@ -194,12 +195,12 @@ class AsyncPrismalClient:
         """``GET /healthz`` — liveness (SPEC-CSB-HLT-001)."""
         response = await self._request("GET", "/healthz")
         raise_for_response(response)
-        return HealthStatus.model_validate(response.json())
+        return HealthStatus.model_validate(decode_json(response))
 
     async def readyz(self) -> ReadyStatus:
         """``GET /readyz`` — readiness (SPEC-CSB-HLT-002)."""
         response = await self._request("GET", "/readyz")
-        body = response.json()
+        body = decode_json(response)
         if response.status_code == 200:
             return ReadyStatus.model_validate(body)
         reason = (
@@ -215,7 +216,7 @@ class AsyncPrismalClient:
         """``POST /threads`` — mint a new opaque thread id (SPEC-CSB-THR-001)."""
         response = await self._request("POST", "/threads")
         raise_for_response(response)
-        return ThreadCreated.model_validate(response.json())
+        return ThreadCreated.model_validate(decode_json(response))
 
     async def send_message(
         self,
@@ -237,19 +238,25 @@ class AsyncPrismalClient:
             content=content, role=role, metadata=metadata or {}
         ).model_dump()
         headers = self._headers(org_id)
-        async with self._client.stream(
-            "POST", f"/threads/{thread_id}/messages", json=body, headers=headers
-        ) as response:
-            if not response.is_success:
-                await response.aread()
-                raise_for_response(response)
-            async for event_name, data in aiter_sse_events(response.aiter_lines()):
-                parsed = translate_chat_frame(event_name, data)
-                if parsed is None:
-                    continue
-                yield parsed
-                if isinstance(parsed, DoneEvent):
-                    return
+        try:
+            async with self._client.stream(
+                "POST", f"/threads/{thread_id}/messages", json=body, headers=headers
+            ) as response:
+                if not response.is_success:
+                    await response.aread()
+                    raise_for_response(response)
+                async for event_name, data in aiter_sse_events(response.aiter_lines()):
+                    parsed = translate_chat_frame(event_name, data)
+                    if parsed is None:
+                        continue
+                    yield parsed
+                    if isinstance(parsed, DoneEvent):
+                        return
+        except httpx.HTTPError as exc:
+            # A transport failure mid-stream must surface as an SDK error, not
+            # a raw httpx type (SPEC-CSB-ERR-003/004). The stream is never
+            # retried (SPEC-CSB-RSL-002).
+            raise wrap_transport_exception(exc) from exc
 
     async def agent_card(self, *, org_id: str | None = None) -> AgentCard:
         """``GET /.well-known/agent-card.json`` (SPEC-CSB-A2A-001)."""
@@ -258,7 +265,7 @@ class AsyncPrismalClient:
         )
         _raise_if_a2a_not_enabled(response)
         raise_for_response(response)
-        return AgentCard.model_validate(response.json())
+        return AgentCard.model_validate(decode_json(response))
 
 
 __all__ = ["AsyncPrismalClient", "PrismalAPIError"]

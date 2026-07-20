@@ -28,6 +28,10 @@ from prismal_sdk.exceptions import (
 # message endpoint or an established stream (SPEC-CSB-RSL-002).
 _IDEMPOTENT_METHODS = frozenset({"GET"})
 
+# The only non-GET route safe to re-issue: re-minting a thread id costs an
+# unused id and nothing else (SPEC-CSB-RSL-001).
+_RETRYABLE_POST_PATHS = frozenset({"/threads"})
+
 DEFAULT_BACKOFF_BASE_S = 0.25
 DEFAULT_BACKOFF_CAP_S = 4.0
 
@@ -72,6 +76,23 @@ def parse_error_body(response: httpx.Response) -> tuple[str, str]:
         code if isinstance(code, str) else "internal_error",
         message if isinstance(message, str) else f"HTTP {response.status_code}",
     )
+
+
+def decode_json(response: httpx.Response) -> Any:
+    """Parse a response body as JSON, mapping a malformed body to an SDK error.
+
+    A proxy or a misbehaving host can return HTML (or nothing) on any route.
+    Letting ``json.JSONDecodeError`` escape would break the guarantee that
+    every SDK failure subclasses ``PrismalSDKError`` (SPEC-CSB-ERR-002/004).
+    """
+    try:
+        return response.json()
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise PrismalAPIError(
+            response.status_code,
+            "internal_error",
+            f"Malformed JSON response body (HTTP {response.status_code})",
+        ) from exc
 
 
 def extract_detail(response: httpx.Response) -> str:
@@ -122,16 +143,22 @@ def wrap_transport_exception(exc: httpx.HTTPError) -> PrismalAPIError | Exceptio
     return PrismalConnectionError(str(exc))
 
 
-def is_retryable(method: str, exc: httpx.HTTPError) -> bool:
+def is_retryable(method: str, path: str, exc: httpx.HTTPError) -> bool:
     """Whether one failed attempt is eligible for another try (SPEC-CSB-RSL-*).
 
-    Only connect/timeout failures on idempotent methods are retried; 4xx
+    Only connect/timeout failures on idempotent routes are retried; 4xx
     responses never reach this function (they raise a mapped
     :class:`PrismalAPIError` instead, which the caller does not retry).
+
+    The route matters, not just the method: ``POST /threads`` is safe to redo,
+    while ``POST /threads/{id}/messages`` is not (SPEC-CSB-RSL-002).
     """
-    if method.upper() not in _IDEMPOTENT_METHODS:
+    if not isinstance(exc, httpx.TimeoutException | httpx.TransportError):
         return False
-    return isinstance(exc, httpx.TimeoutException | httpx.TransportError)
+    normalized = method.upper()
+    if normalized in _IDEMPOTENT_METHODS:
+        return True
+    return normalized == "POST" and path.rstrip("/") in _RETRYABLE_POST_PATHS
 
 
 def backoff_delay_s(

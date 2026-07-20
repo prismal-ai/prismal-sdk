@@ -50,17 +50,13 @@ def test_wrap_transport_exception_connection():
     assert isinstance(exc, PrismalConnectionError)
 
 
-def test_is_retryable_only_for_idempotent_get():
-    exc = httpx.ConnectTimeout("timed out")
-    assert is_retryable("GET", exc) is True
-    assert is_retryable("POST", exc) is False
-
-
 def test_is_retryable_false_for_non_transport_error():
+    # Per-route idempotency is covered in test_resilience.py; this guards the
+    # exception-type gate only.
     class NotATransportError(httpx.HTTPError):
         pass
 
-    assert is_retryable("GET", NotATransportError("weird")) is False
+    assert is_retryable("GET", "/healthz", NotATransportError("weird")) is False
 
 
 def test_all_sdk_exceptions_share_one_root():

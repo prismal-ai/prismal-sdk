@@ -20,6 +20,7 @@ from prismal_sdk._sse import iter_sse_events
 from prismal_sdk._transport import (
     backoff_delay_s,
     build_headers,
+    decode_json,
     extract_detail,
     is_retryable,
     raise_for_response,
@@ -57,7 +58,7 @@ class _A2AResource:
         response = self._client._request("POST", "/a2a", json_body=body, org_id=org_id)
         _raise_if_a2a_not_enabled(response)
         raise_for_response(response)
-        return _a2a.parse_jsonrpc_response(response.json())
+        return _a2a.parse_jsonrpc_response(decode_json(response))
 
     def stream(
         self,
@@ -184,7 +185,7 @@ class PrismalClient:
                     method, path, json=json_body, headers=headers
                 )
             except httpx.HTTPError as exc:
-                if attempt < self._max_retries and is_retryable(method, exc):
+                if attempt < self._max_retries and is_retryable(method, path, exc):
                     time.sleep(backoff_delay_s(attempt))
                     attempt += 1
                     continue
@@ -194,7 +195,7 @@ class PrismalClient:
         """``GET /healthz`` — liveness (SPEC-CSB-HLT-001)."""
         response = self._request("GET", "/healthz")
         raise_for_response(response)
-        return HealthStatus.model_validate(response.json())
+        return HealthStatus.model_validate(decode_json(response))
 
     def readyz(self) -> ReadyStatus:
         """``GET /readyz`` — readiness (SPEC-CSB-HLT-002).
@@ -203,7 +204,7 @@ class PrismalClient:
         the exception mapped from the body's ``reason`` code) on ``503``.
         """
         response = self._request("GET", "/readyz")
-        body = response.json()
+        body = decode_json(response)
         if response.status_code == 200:
             return ReadyStatus.model_validate(body)
         reason = (
@@ -219,7 +220,7 @@ class PrismalClient:
         """``POST /threads`` — mint a new opaque thread id (SPEC-CSB-THR-001)."""
         response = self._request("POST", "/threads")
         raise_for_response(response)
-        return ThreadCreated.model_validate(response.json())
+        return ThreadCreated.model_validate(decode_json(response))
 
     def send_message(
         self,
@@ -244,26 +245,32 @@ class PrismalClient:
             content=content, role=role, metadata=metadata or {}
         ).model_dump()
         headers = self._headers(org_id)
-        with self._client.stream(
-            "POST", f"/threads/{thread_id}/messages", json=body, headers=headers
-        ) as response:
-            if not response.is_success:
-                response.read()
-                raise_for_response(response)
-            for event_name, data in iter_sse_events(response.iter_lines()):
-                parsed = translate_chat_frame(event_name, data)
-                if parsed is None:
-                    continue
-                yield parsed
-                if isinstance(parsed, DoneEvent):
-                    return
+        try:
+            with self._client.stream(
+                "POST", f"/threads/{thread_id}/messages", json=body, headers=headers
+            ) as response:
+                if not response.is_success:
+                    response.read()
+                    raise_for_response(response)
+                for event_name, data in iter_sse_events(response.iter_lines()):
+                    parsed = translate_chat_frame(event_name, data)
+                    if parsed is None:
+                        continue
+                    yield parsed
+                    if isinstance(parsed, DoneEvent):
+                        return
+        except httpx.HTTPError as exc:
+            # A transport failure mid-stream must surface as an SDK error, not
+            # a raw httpx type (SPEC-CSB-ERR-003/004). The stream is never
+            # retried (SPEC-CSB-RSL-002).
+            raise wrap_transport_exception(exc) from exc
 
     def agent_card(self, *, org_id: str | None = None) -> AgentCard:
         """``GET /.well-known/agent-card.json`` (SPEC-CSB-A2A-001)."""
         response = self._request("GET", "/.well-known/agent-card.json", org_id=org_id)
         _raise_if_a2a_not_enabled(response)
         raise_for_response(response)
-        return AgentCard.model_validate(response.json())
+        return AgentCard.model_validate(decode_json(response))
 
 
 __all__ = ["PrismalClient", "PrismalAPIError"]

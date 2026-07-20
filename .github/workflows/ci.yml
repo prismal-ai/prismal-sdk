@@ -2,8 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
+  # Required for the opt-in `contract` job below, which gates on this event.
+  workflow_dispatch:
 
 jobs:
   unit:
