@@ -40,6 +40,7 @@ dev = [
     "respx>=0.21",
     "ruff>=0.6",
     "mypy>=1.11",
+    "pytest-cov>=5.0",
 ]
 
 [project.urls]
@@ -86,3 +87,20 @@ markers = [
 # Unit suite runs with no network; the contract suite is opt-in.
 # Run unit only:      uv run pytest -m 'not contract'
 # Run contract suite: uv run pytest -m contract
+
+[tool.coverage.run]
+source = ["src/prismal_sdk"]
+branch = true
+
+[tool.coverage.report]
+# The floor is a ratchet, not a target: raise it when coverage rises, never
+# lower it to make a red build green (CSB-05-05).
+fail_under = 93
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]
