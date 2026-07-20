@@ -85,24 +85,46 @@ class _A2AResource:
             yield from _a2a.iter_a2a_data_frames(response.iter_lines())
 
     def message_send(
-        self, params: dict[str, Any], *, request_id: str | int | None = None
+        self,
+        params: dict[str, Any],
+        *,
+        request_id: str | int | None = None,
+        org_id: str | None = None,
     ) -> Any:
-        return self.send(_a2a.MESSAGE_SEND, params, request_id=request_id)
+        return self.send(
+            _a2a.MESSAGE_SEND, params, request_id=request_id, org_id=org_id
+        )
 
     def message_stream(
-        self, params: dict[str, Any], *, request_id: str | int | None = None
+        self,
+        params: dict[str, Any],
+        *,
+        request_id: str | int | None = None,
+        org_id: str | None = None,
     ) -> Iterator[Any]:
-        return self.stream(_a2a.MESSAGE_STREAM, params, request_id=request_id)
+        return self.stream(
+            _a2a.MESSAGE_STREAM, params, request_id=request_id, org_id=org_id
+        )
 
     def tasks_get(
-        self, params: dict[str, Any], *, request_id: str | int | None = None
+        self,
+        params: dict[str, Any],
+        *,
+        request_id: str | int | None = None,
+        org_id: str | None = None,
     ) -> Any:
-        return self.send(_a2a.TASKS_GET, params, request_id=request_id)
+        return self.send(_a2a.TASKS_GET, params, request_id=request_id, org_id=org_id)
 
     def tasks_cancel(
-        self, params: dict[str, Any], *, request_id: str | int | None = None
+        self,
+        params: dict[str, Any],
+        *,
+        request_id: str | int | None = None,
+        org_id: str | None = None,
     ) -> Any:
-        return self.send(_a2a.TASKS_CANCEL, params, request_id=request_id)
+        return self.send(
+            _a2a.TASKS_CANCEL, params, request_id=request_id, org_id=org_id
+        )
 
 
 def _raise_if_a2a_not_enabled(response: httpx.Response) -> None:
