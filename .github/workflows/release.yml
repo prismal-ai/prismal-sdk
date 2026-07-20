@@ -1,0 +1,69 @@
+name: Release
+
+# Publishes on any `v*` tag, e.g. v0.1.0. Build and publish both go through
+# uv, driven by pyproject.toml, matching the toolchain ci.yml already uses.
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+    permissions:
+      # Required for PyPI trusted publishing (OIDC) — no long-lived token
+      # lives in the repository secrets.
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      # A tag that disagrees with pyproject.toml would publish a version
+      # nobody asked for, and PyPI uploads are immutable. Fail before build.
+      - name: Verify the tag matches the project version
+        run: |
+          set -euo pipefail
+          tag_version="${GITHUB_REF_NAME#v}"
+          project_version="$(uv version --short)"
+          if [ "$tag_version" != "$project_version" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match project version ${project_version}"
+            exit 1
+          fi
+          echo "tag and project version agree: ${project_version}"
+
+      - name: Install
+        run: uv pip install -e ".[dev]" --system
+
+      - name: Ruff
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Mypy
+        run: uv run mypy src
+
+      - name: Unit tests (no network) + coverage floor
+        run: uv run pytest -m "not contract" --cov --cov-report=term-missing
+
+      - name: Build
+        run: uv build
+
+      # Catches what the unit suite cannot: files missing from the artifacts.
+      - name: Smoke test (wheel)
+        run: uv run --isolated --no-project --with dist/*.whl scripts/smoke_test.py
+
+      - name: Smoke test (source distribution)
+        run: uv run --isolated --no-project --with dist/*.tar.gz scripts/smoke_test.py
+
+      - name: Publish
+        run: uv publish

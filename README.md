@@ -8,10 +8,15 @@ business-logic-free client, not a second copy of the engine.
 
 ## Status
 
-**Bootstrap (v0.1.0.dev0).** The transport, chat streaming, and A2A client
-are implemented and unit-tested offline against the documented wire contract.
-The opt-in `contract` suite (against a live `prismal-server`) and the
-`v0.1.0` release tag are the two items still open — see
+**Release candidate (v0.1.0).** The transport, chat streaming, and A2A client
+are implemented and unit-tested offline against the documented wire contract
+(105 tests, 93% branch coverage). The release workflow is in place and the
+version is tagged locally.
+
+One item is still open: the opt-in `contract` suite has never run green
+against a live `prismal-server`, because that needs a host with working
+engine credentials. It is the only part of the Definition of Done that
+depends on an environment outside this repo — see
 [`specs/client-sdk-bootstrap/TASKS.md`](./specs/client-sdk-bootstrap/TASKS.md).
 The full SDD lives under
 [`specs/client-sdk-bootstrap/`](./specs/client-sdk-bootstrap/)

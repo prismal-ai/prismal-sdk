@@ -65,12 +65,35 @@ map to `SPEC-CSB-*` IDs and the `M0…M5` milestones in `PLAN.md`.
 
 | ID | Task | Est. | Dep | SPEC | Status |
 |---|---|---|---|---|---|
-| CSB-05-01 | `tests/contract/`: opt-in suite against a running `prismal-server` — health, one chat turn, agent card fetch | 0.5 d | all | NFR-003 | `TODO` |
+| CSB-05-01 | `tests/contract/`: opt-in suite against a running `prismal-server` — health, one chat turn, agent card fetch | 0.5 d | all | NFR-003 | `BLOCKED` |
 | CSB-05-02 | `examples/`: `quickstart.py`, `streaming_chat.py`, `a2a_agent_card.py`, runnable against local host | 0.3 d | 02-04, 03-03 | — | `DONE` |
 | CSB-05-03 | `docs/`: `streaming.md`, `auth.md`, `errors.md` | 0.3 d | all | — | `DONE` |
 | CSB-05-04 | `README.md` quickstart + status table; link engine/host repos | 0.3 d | all | — | `DONE` |
-| CSB-05-05 | `mypy --strict` clean, `ruff` clean, coverage baseline recorded | 0.3 d | all | NFR-004 | `TODO` |
-| CSB-05-06 | Tag `v0.1.0`; release workflow (PyPI optional) | 0.2 d | 05-01, 05-05 | — | `TODO` |
+| CSB-05-05 | `mypy --strict` clean, `ruff` clean, coverage baseline recorded | 0.3 d | all | NFR-004 | `DONE` |
+| CSB-05-06 | Tag `v0.1.0`; release workflow (PyPI optional) | 0.2 d | 05-01, 05-05 | — | `WIP` |
+
+### Phase 5 notes
+
+**CSB-05-01 is `BLOCKED`, not deferred.** The suite is written and gates
+correctly — with no host on `localhost:8000` it skips all three tests and
+exits `0`, so it never fails a build for the wrong reason. It has never run
+green because the available `prismal-server` answers `internal_error` on the
+chat turn, most likely missing engine/LLM credentials. Unblocking it needs a
+properly configured host, which lives outside this repo; nothing in the SDK
+can fix it. This is the **only** Definition-of-Done item still open.
+
+**CSB-05-05 baseline: 93.44%** statement+branch coverage (105 unit tests).
+`fail_under = 93` in `pyproject.toml` is a ratchet — raise it as coverage
+rises, never lower it to turn a red build green. CI enforces it.
+
+**CSB-05-06 is `WIP` by design.** `.github/workflows/release.yml` publishes
+via `uv build` + `uv publish` on any `v*` tag, using PyPI trusted publishing
+(OIDC), and re-runs lint, types, tests and a packaging smoke test before it
+will publish. The version is bumped to `0.1.0` and tagged **locally only** —
+the tag has not been pushed, so nothing has been published yet. Note the DoD
+makes this task depend on `CSB-05-01`: releasing before the contract suite
+has ever run green means shipping a client never verified against a live
+host. Pushing the tag is a deliberate human decision.
 
 ## Future (out of scope for v0.1, tracked only)
 
