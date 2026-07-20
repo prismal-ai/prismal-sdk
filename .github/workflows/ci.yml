@@ -18,8 +18,12 @@ jobs:
           enable-cache: true
       - name: Set up Python
         run: uv python install
+      # `uv pip install --system` targets the runner's Debian Python, which is
+      # externally managed (PEP 668) and refuses the install. Sync into the
+      # project venv instead; `uv run` picks it up. `--locked` additionally
+      # fails the build if uv.lock has drifted from pyproject.toml.
       - name: Install
-        run: uv pip install -e ".[dev]" --system
+        run: uv sync --extra dev --locked
       - name: Ruff
         run: |
           uv run ruff check .
@@ -39,6 +43,6 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
       - name: Install
-        run: uv pip install -e ".[dev]" --system
+        run: uv sync --extra dev --locked
       - name: Contract suite
         run: uv run pytest -m contract

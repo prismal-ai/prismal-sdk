@@ -42,7 +42,7 @@ jobs:
           echo "tag and project version agree: ${project_version}"
 
       - name: Install
-        run: uv pip install -e ".[dev]" --system
+        run: uv sync --extra dev --locked
 
       - name: Ruff
         run: |
