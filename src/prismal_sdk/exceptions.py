@@ -12,6 +12,13 @@ catch broadly with one ``except``.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any
+
+import pydantic
+
+from prismal_sdk.models import Usage
+
 
 class PrismalSDKError(Exception):
     """Root of every exception raised by this SDK."""
@@ -29,6 +36,22 @@ class PrismalAPIError(PrismalSDKError):
         self.message = message
         super().__init__(f"[{status_code}] {code}: {message}")
 
+    @classmethod
+    def from_wire(
+        cls,
+        status_code: int,
+        code: str,
+        message: str,
+        details: Mapping[str, Any],
+    ) -> PrismalAPIError:
+        """Build from the host's error object; subclasses may read extra keys.
+
+        ``details`` is the whole ``error`` object of an HTTP body, or the
+        ``data`` of a stream ``error`` event. The base ignores everything
+        beyond ``code``/``message``.
+        """
+        return cls(status_code, code, message)
+
 
 class RuntimeCompositionError(PrismalAPIError):
     """503 — the server's default runtime failed to compose (readiness)."""
@@ -43,7 +66,61 @@ class PermissionDeniedError(PrismalAPIError):
 
 
 class BudgetExceededError(PrismalAPIError):
-    """429 — a cost/token/call budget was exceeded."""
+    """A cost/token/call budget was exceeded (SPEC-CS2-ERR-002).
+
+    Host v0.2 answers ``402`` before a turn starts, or ends a stream with an
+    ``error`` event carrying the partial ``usage``; v0.1 hosts used ``429``.
+    Mapping is by ``code``, so all three surface as this class. ``scope``,
+    ``limit`` and ``consumed`` are the host's values verbatim; each detail
+    is ``None`` when the host omits it.
+    """
+
+    def __init__(
+        self,
+        status_code: int,
+        code: str,
+        message: str,
+        *,
+        scope: str | None = None,
+        limit: Any = None,
+        consumed: Any = None,
+        usage: Usage | None = None,
+    ) -> None:
+        super().__init__(status_code, code, message)
+        self.scope = scope
+        self.limit = limit
+        self.consumed = consumed
+        self.usage = usage
+
+    @classmethod
+    def from_wire(
+        cls,
+        status_code: int,
+        code: str,
+        message: str,
+        details: Mapping[str, Any],
+    ) -> PrismalAPIError:
+        scope = details.get("scope")
+        return cls(
+            status_code,
+            code,
+            message,
+            scope=scope if isinstance(scope, str) else None,
+            limit=details.get("limit"),
+            consumed=details.get("consumed"),
+            usage=_partial_usage(details.get("usage")),
+        )
+
+
+def _partial_usage(raw: Any) -> Usage | None:
+    # A malformed partial usage must not replace the budget error being
+    # raised with a pydantic ValidationError; the error itself still surfaces.
+    if not isinstance(raw, dict):
+        return None
+    try:
+        return Usage.model_validate(raw)
+    except pydantic.ValidationError:
+        return None
 
 
 class A2AAgentUnavailableError(PrismalAPIError):
@@ -58,6 +135,33 @@ class A2ANotEnabledError(PrismalAPIError):
     """404 on an A2A route — the host has ``a2a_enabled=false`` (SPEC-RHB-A2A-005)."""
 
 
+# ── Host v0.2 codes (SPEC-CS2-ERR-001; host SPEC-RH2 §11) ──────────────────
+
+
+class ProtocolNotEnabledError(PrismalAPIError):
+    """406 — the requested stream protocol (e.g. AG-UI) is disabled for the tenant."""
+
+
+class InvalidRequestError(PrismalAPIError):
+    """400 — a malformed request, e.g. an invalid usage window (``invalid_window``)."""
+
+
+class ForbiddenError(PrismalAPIError):
+    """403 — the identity may not act for that tenant (``forbidden_tenant``)."""
+
+
+class ServerConfigurationError(PrismalAPIError):
+    """500 — the tenant's host configuration is invalid (``tenant_config_invalid``)."""
+
+
+class TurnCancelledError(PrismalAPIError):
+    """A stream ``error`` with code ``cancelled`` — the turn was cancelled."""
+
+
+class AdminDisabledError(PrismalAPIError):
+    """404 — admin routes are disabled on the host (``admin_disabled``)."""
+
+
 # code (from the response body) -> exception class. Unmapped codes, or a
 # missing/non-JSON error body, fall back to the base PrismalAPIError
 # (SPEC-CSB-ERR-002).
@@ -68,13 +172,28 @@ _ERROR_CODE_MAP: dict[str, type[PrismalAPIError]] = {
     "budget_exceeded": BudgetExceededError,
     "a2a_agent_unavailable": A2AAgentUnavailableError,
     "validation_error": ValidationError,
+    "protocol_not_enabled": ProtocolNotEnabledError,
+    "invalid_window": InvalidRequestError,
+    "forbidden_tenant": ForbiddenError,
+    "tenant_config_invalid": ServerConfigurationError,
+    "cancelled": TurnCancelledError,
+    "admin_disabled": AdminDisabledError,
 }
 
 
-def error_for_code(status_code: int, code: str, message: str) -> PrismalAPIError:
-    """Build the mapped exception instance for a server error ``code``."""
+def error_for_code(
+    status_code: int,
+    code: str,
+    message: str,
+    details: Mapping[str, Any] | None = None,
+) -> PrismalAPIError:
+    """Build the mapped exception instance for a server error ``code``.
+
+    The class is chosen by ``code``, never by HTTP status, so HTTP bodies and
+    stream ``error`` events share one table (SPEC-CS2-ERR-001).
+    """
     klass = _ERROR_CODE_MAP.get(code, PrismalAPIError)
-    return klass(status_code, code, message)
+    return klass.from_wire(status_code, code, message, details or {})
 
 
 # ── Transport-level errors (never reached the server) ───────────────────────

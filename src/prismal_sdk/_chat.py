@@ -49,5 +49,7 @@ def translate_chat_frame(event: str, data: str) -> ChatEvent | None:
         return model.model_validate(payload)
     if event == "error":
         err = ErrorEvent.model_validate(payload)
-        raise error_for_code(_MID_STREAM_ERROR_STATUS, err.code, err.message)
+        # The whole payload rides along: budget_exceeded carries the partial
+        # `usage` here (SPEC-CS2-ERR-002).
+        raise error_for_code(_MID_STREAM_ERROR_STATUS, err.code, err.message, payload)
     return None

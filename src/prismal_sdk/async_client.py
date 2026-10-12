@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
+from datetime import datetime
 from types import TracebackType
 from typing import Any
 
@@ -22,6 +23,7 @@ from prismal_sdk._sse import aiter_sse_events
 from prismal_sdk._transport import (
     backoff_delay_s,
     build_headers,
+    build_query,
     decode_json,
     extract_detail,
     is_retryable,
@@ -32,12 +34,15 @@ from prismal_sdk.config import DEFAULT_BASE_URL, ClientConfig
 from prismal_sdk.exceptions import A2ANotEnabledError, PrismalAPIError, error_for_code
 from prismal_sdk.models import (
     AgentCard,
+    BudgetReport,
     ChatEvent,
     DoneEvent,
     HealthStatus,
     MessageIn,
     ReadyStatus,
     ThreadCreated,
+    UsageReport,
+    UsageTurn,
 )
 
 
@@ -194,6 +199,7 @@ class AsyncPrismalClient:
         path: str,
         *,
         json_body: dict[str, Any] | None = None,
+        params: dict[str, str] | None = None,
         org_id: str | None = None,
     ) -> httpx.Response:
         """One request with bounded retry on transient transport failures.
@@ -206,7 +212,7 @@ class AsyncPrismalClient:
         while True:
             try:
                 return await self._client.request(
-                    method, path, json=json_body, headers=headers
+                    method, path, json=json_body, params=params, headers=headers
                 )
             except httpx.HTTPError as exc:
                 if attempt < self._max_retries and is_retryable(method, path, exc):
@@ -281,6 +287,77 @@ class AsyncPrismalClient:
             # a raw httpx type (SPEC-CSB-ERR-003/004). The stream is never
             # retried (SPEC-CSB-RSL-002).
             raise wrap_transport_exception(exc) from exc
+
+    async def usage(
+        self,
+        *,
+        thread_id: str | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+        org_id: str | None = None,
+    ) -> UsageReport:
+        """``GET /v1/usage`` — usage report for the caller's org (SPEC-CS2-USE-001).
+
+        Only non-``None`` filters are sent; datetimes must be timezone-aware
+        and go out as RFC 3339 UTC. ``org_id`` selects the tenant through
+        the ``X-Org-Id`` header, like every other call.
+        """
+        params = build_query(
+            {
+                "thread_id": thread_id,
+                "since": since,
+                "until": until,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        response = await self._request("GET", "/v1/usage", params=params, org_id=org_id)
+        raise_for_response(response)
+        return UsageReport.model_validate(decode_json(response))
+
+    async def iter_usage_turns(
+        self,
+        *,
+        thread_id: str | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        page_size: int = 100,
+        org_id: str | None = None,
+    ) -> AsyncIterator[UsageTurn]:
+        """Every turn in the window, following ``next_cursor`` (SPEC-CS2-USE-002).
+
+        Lazy: one ``GET /v1/usage`` page per ``page_size`` turns, fetched as
+        iteration reaches it. Each page is an idempotent ``GET``, retried on
+        connect/timeout failures like any other.
+        """
+        cursor: str | None = None
+        while True:
+            report = await self.usage(
+                thread_id=thread_id,
+                since=since,
+                until=until,
+                limit=page_size,
+                cursor=cursor,
+                org_id=org_id,
+            )
+            for turn in report.turns:
+                yield turn
+            cursor = report.next_cursor
+            if cursor is None:
+                return
+
+    async def budget(
+        self, *, thread_id: str | None = None, org_id: str | None = None
+    ) -> BudgetReport:
+        """``GET /v1/budget`` — the engine's budget status (SPEC-CS2-BUD-001)."""
+        params = build_query({"thread_id": thread_id})
+        response = await self._request(
+            "GET", "/v1/budget", params=params, org_id=org_id
+        )
+        raise_for_response(response)
+        return BudgetReport.model_validate(decode_json(response))
 
     async def agent_card(self, *, org_id: str | None = None) -> AgentCard:
         """``GET /.well-known/agent-card.json`` (SPEC-CSB-A2A-001)."""
