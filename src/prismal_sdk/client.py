@@ -16,6 +16,15 @@ from typing import Any, Literal, overload
 import httpx
 
 from prismal_sdk import a2a as _a2a
+from prismal_sdk._a2a_methods import (
+    A2AProtocolMode,
+    A2AVersion,
+    check_mode,
+    method_for,
+    tasks_list_params,
+    version_from_card,
+    version_headers,
+)
 from prismal_sdk._chat import check_negotiated, stream_profile
 from prismal_sdk._sse import iter_sse_events
 from prismal_sdk._transport import (
@@ -47,6 +56,7 @@ from prismal_sdk.models import (
     HealthStatus,
     MessageIn,
     ReadyStatus,
+    TaskListPage,
     ThreadCreated,
     UsageReport,
     UsageTurn,
@@ -54,10 +64,34 @@ from prismal_sdk.models import (
 
 
 class _A2AResource:
-    """``client.a2a`` — JSON-RPC helpers bound to a :class:`PrismalClient`."""
+    """``client.a2a`` — JSON-RPC helpers bound to a :class:`PrismalClient`.
+
+    The typed wrappers speak the client's ``a2a_protocol`` version: method
+    names from :data:`~prismal_sdk._a2a_methods.A2A_METHODS`, plus
+    ``A2A-Version: 1.0`` on v1 (SPEC-CS2-A2A-002). Payloads are passed
+    through unconverted — building v0.3 or v1 shapes is the caller's job
+    (SPEC-CS2-A2A-005).
+    """
 
     def __init__(self, client: PrismalClient) -> None:
         self._client = client
+        # Per effective tenant: hosts may pin a2a_protocol_version per tenant.
+        self._versions: dict[str | None, A2AVersion] = {}
+
+    def negotiated_version(self, *, org_id: str | None = None) -> A2AVersion:
+        """The A2A version spoken to this tenant's peer (SPEC-CS2-A2A-001).
+
+        A fixed ``a2a_protocol`` is returned as-is, without I/O. ``"auto"``
+        reads the Agent Card once per tenant and caches the answer.
+        """
+        mode = self._client._a2a_protocol
+        if mode != "auto":
+            return mode
+        key = org_id or self._client._org_id
+        if key not in self._versions:
+            card = self._client.agent_card(org_id=org_id)
+            self._versions[key] = version_from_card(card)
+        return self._versions[key]
 
     def send(
         self,
@@ -67,12 +101,18 @@ class _A2AResource:
         request_id: str | int | None = None,
         org_id: str | None = None,
     ) -> Any:
-        """``POST /a2a`` (non-streaming), returning ``result`` (SPEC-CSB-A2A-002)."""
-        body = _a2a.build_jsonrpc_request(method, params or {}, request_id=request_id)
-        response = self._client._request("POST", "/a2a", json_body=body, org_id=org_id)
-        _raise_if_a2a_not_enabled(response)
-        raise_for_response(response)
-        return _a2a.parse_jsonrpc_response(decode_json(response))
+        """``POST /a2a`` (non-streaming), returning ``result`` (SPEC-CSB-A2A-002).
+
+        A raw call never negotiates: it carries ``A2A-Version: 1.0`` only
+        when the client was built with ``a2a_protocol="1.0"``.
+        """
+        return self._post(
+            method,
+            params,
+            self._fixed_version(),
+            request_id=request_id,
+            org_id=org_id,
+        )
 
     def stream(
         self,
@@ -82,9 +122,138 @@ class _A2AResource:
         request_id: str | int | None = None,
         org_id: str | None = None,
     ) -> Iterator[Any]:
-        """``POST /a2a`` with ``message/stream``, yielding decoded ``data:`` frames."""
+        """``POST /a2a`` streaming, yielding decoded ``data:`` frames.
+
+        Same version-header rule as :meth:`send`.
+        """
+        yield from self._post_stream(
+            method,
+            params,
+            self._fixed_version(),
+            request_id=request_id,
+            org_id=org_id,
+        )
+
+    def message_send(
+        self,
+        params: dict[str, Any],
+        *,
+        request_id: str | int | None = None,
+        org_id: str | None = None,
+    ) -> Any:
+        return self._call("message_send", params, request_id=request_id, org_id=org_id)
+
+    def message_stream(
+        self,
+        params: dict[str, Any],
+        *,
+        request_id: str | int | None = None,
+        org_id: str | None = None,
+    ) -> Iterator[Any]:
+        return self._call_stream(
+            "message_stream", params, request_id=request_id, org_id=org_id
+        )
+
+    def tasks_get(
+        self,
+        params: dict[str, Any],
+        *,
+        request_id: str | int | None = None,
+        org_id: str | None = None,
+    ) -> Any:
+        return self._call("tasks_get", params, request_id=request_id, org_id=org_id)
+
+    def tasks_cancel(
+        self,
+        params: dict[str, Any],
+        *,
+        request_id: str | int | None = None,
+        org_id: str | None = None,
+    ) -> Any:
+        return self._call("tasks_cancel", params, request_id=request_id, org_id=org_id)
+
+    def tasks_list(
+        self,
+        *,
+        context_id: str | None = None,
+        status: str | None = None,
+        page_size: int = 50,
+        page_token: str | None = None,
+        tenant: str | None = None,
+        history_length: int | None = None,
+        status_timestamp_after: str | None = None,
+        include_artifacts: bool | None = None,
+        request_id: str | int | None = None,
+        org_id: str | None = None,
+    ) -> TaskListPage:
+        """A2A v1 ``ListTasks`` — one page of tasks (SPEC-CS2-A2A-003).
+
+        ``page_size`` outside ``1..100`` raises ``ValueError`` and a 0.3 peer
+        raises :class:`~prismal_sdk.exceptions.A2AVersionError`, both before
+        anything is posted. The last page has ``next_page_token == ""``.
+        """
+        params = tasks_list_params(
+            context_id=context_id,
+            status=status,
+            page_size=page_size,
+            page_token=page_token,
+            tenant=tenant,
+            history_length=history_length,
+            status_timestamp_after=status_timestamp_after,
+            include_artifacts=include_artifacts,
+        )
+        result = self._call("tasks_list", params, request_id=request_id, org_id=org_id)
+        return TaskListPage.model_validate(result)
+
+    def _fixed_version(self) -> A2AVersion:
+        mode = self._client._a2a_protocol
+        return "0.3" if mode == "auto" else mode
+
+    def _call(
+        self,
+        operation: str,
+        params: dict[str, Any],
+        *,
+        request_id: str | int | None,
+        org_id: str | None,
+    ) -> Any:
+        version = self.negotiated_version(org_id=org_id)
+        return self._post(
+            method_for(version, operation),
+            params,
+            version,
+            request_id=request_id,
+            org_id=org_id,
+        )
+
+    def _call_stream(
+        self,
+        operation: str,
+        params: dict[str, Any],
+        *,
+        request_id: str | int | None,
+        org_id: str | None,
+    ) -> Iterator[Any]:
+        version = self.negotiated_version(org_id=org_id)
+        yield from self._post_stream(
+            method_for(version, operation),
+            params,
+            version,
+            request_id=request_id,
+            org_id=org_id,
+        )
+
+    def _post_stream(
+        self,
+        method: str,
+        params: dict[str, Any] | None,
+        version: A2AVersion,
+        *,
+        request_id: str | int | None,
+        org_id: str | None,
+    ) -> Iterator[Any]:
         body = _a2a.build_jsonrpc_request(method, params or {}, request_id=request_id)
-        headers = self._client._headers(org_id)
+        headers = {**self._client._headers(org_id), **version_headers(version)}
         with self._client._client.stream(
             "POST", "/a2a", json=body, headers=headers
         ) as response:
@@ -98,47 +267,26 @@ class _A2AResource:
                 raise_for_response(response)
             yield from _a2a.iter_a2a_data_frames(response.iter_lines())
 
-    def message_send(
+    def _post(
         self,
-        params: dict[str, Any],
+        method: str,
+        params: dict[str, Any] | None,
+        version: A2AVersion,
         *,
-        request_id: str | int | None = None,
-        org_id: str | None = None,
+        request_id: str | int | None,
+        org_id: str | None,
     ) -> Any:
-        return self.send(
-            _a2a.MESSAGE_SEND, params, request_id=request_id, org_id=org_id
+        body = _a2a.build_jsonrpc_request(method, params or {}, request_id=request_id)
+        response = self._client._request(
+            "POST",
+            "/a2a",
+            json_body=body,
+            headers=version_headers(version),
+            org_id=org_id,
         )
-
-    def message_stream(
-        self,
-        params: dict[str, Any],
-        *,
-        request_id: str | int | None = None,
-        org_id: str | None = None,
-    ) -> Iterator[Any]:
-        return self.stream(
-            _a2a.MESSAGE_STREAM, params, request_id=request_id, org_id=org_id
-        )
-
-    def tasks_get(
-        self,
-        params: dict[str, Any],
-        *,
-        request_id: str | int | None = None,
-        org_id: str | None = None,
-    ) -> Any:
-        return self.send(_a2a.TASKS_GET, params, request_id=request_id, org_id=org_id)
-
-    def tasks_cancel(
-        self,
-        params: dict[str, Any],
-        *,
-        request_id: str | int | None = None,
-        org_id: str | None = None,
-    ) -> Any:
-        return self.send(
-            _a2a.TASKS_CANCEL, params, request_id=request_id, org_id=org_id
-        )
+        _raise_if_a2a_not_enabled(response)
+        raise_for_response(response)
+        return _a2a.parse_jsonrpc_response(decode_json(response))
 
 
 def _raise_if_a2a_not_enabled(response: httpx.Response) -> None:
@@ -157,6 +305,7 @@ class PrismalClient:
         org_id: str | None = None,
         timeout_s: float = 30.0,
         max_retries: int = 2,
+        a2a_protocol: A2AProtocolMode = "0.3",
         transport: httpx.BaseTransport | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
@@ -164,6 +313,7 @@ class PrismalClient:
         self._org_id = org_id
         self._max_retries = max_retries
         self._timeout_s = timeout_s
+        self._a2a_protocol: A2AProtocolMode = check_mode(a2a_protocol)
         self._client = httpx.Client(
             base_url=self._base_url, timeout=timeout_s, transport=transport
         )
@@ -178,6 +328,7 @@ class PrismalClient:
             org_id=config.org_id,
             timeout_s=config.timeout_s,
             max_retries=config.max_retries,
+            a2a_protocol=config.a2a_protocol,
         )
 
     def __enter__(self) -> PrismalClient:
@@ -205,6 +356,7 @@ class PrismalClient:
         *,
         json_body: dict[str, Any] | None = None,
         params: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
         org_id: str | None = None,
     ) -> httpx.Response:
         """One request with bounded retry on transient transport failures.
@@ -215,12 +367,12 @@ class PrismalClient:
         ``{"status", "reason"}`` vs. a plain ``HTTPException`` ``{"detail"}``
         on the A2A routes).
         """
-        headers = self._headers(org_id)
+        request_headers = {**self._headers(org_id), **(headers or {})}
         attempt = 0
         while True:
             try:
                 return self._client.request(
-                    method, path, json=json_body, params=params, headers=headers
+                    method, path, json=json_body, params=params, headers=request_headers
                 )
             except httpx.HTTPError as exc:
                 if attempt < self._max_retries and is_retryable(method, path, exc):
@@ -488,9 +640,21 @@ class PrismalClient:
             ws_url(self._base_url, thread_id), self._headers(org_id), self._timeout_s
         )
 
-    def agent_card(self, *, org_id: str | None = None) -> AgentCard:
-        """``GET /.well-known/agent-card.json`` (SPEC-CSB-A2A-001)."""
-        response = self._request("GET", "/.well-known/agent-card.json", org_id=org_id)
+    def agent_card(
+        self,
+        *,
+        org_id: str | None = None,
+        protocol_version: A2AVersion | None = None,
+    ) -> AgentCard:
+        """``GET /.well-known/agent-card.json`` (SPEC-CSB-A2A-001).
+
+        ``protocol_version`` asks for the card of a given A2A stack
+        (``?protocolVersion=``, SPEC-CS2-A2A-004).
+        """
+        params = build_query({"protocolVersion": protocol_version})
+        response = self._request(
+            "GET", "/.well-known/agent-card.json", params=params, org_id=org_id
+        )
         _raise_if_a2a_not_enabled(response)
         raise_for_response(response)
         return AgentCard.model_validate(decode_json(response))

@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 # ── Health (SPEC-CSB-HLT-*) ─────────────────────────────────────────────────
 
@@ -216,6 +217,20 @@ class BudgetReport(_WireModel):
 # ── A2A (SPEC-CSB-A2A-*) ─────────────────────────────────────────────────────
 
 
+class AgentInterface(BaseModel):
+    """One ``supportedInterfaces[]`` entry of an A2A v1 Agent Card."""
+
+    model_config = ConfigDict(
+        extra="allow", alias_generator=to_camel, populate_by_name=True
+    )
+
+    url: str | None = None
+    #: ``JSONRPC`` | ``GRPC`` | ``HTTP+JSON``.
+    protocol_binding: str | None = None
+    protocol_version: str | None = None
+    tenant: str | None = None
+
+
 class AgentCard(BaseModel):
     """The A2A Agent Card (``GET /.well-known/agent-card.json``).
 
@@ -228,7 +243,12 @@ class AgentCard(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
     name: str | None = None
+    #: Top-level version of a v0.3 card; v1 cards carry it per interface.
     protocol_version: str | None = Field(default=None, alias="protocolVersion")
+    #: v1 only (ADR-PRT-001 §2.1); ``None`` on a v0.3 card.
+    supported_interfaces: list[AgentInterface] | None = Field(
+        default=None, alias="supportedInterfaces"
+    )
 
 
 class JsonRpcRequest(BaseModel):
@@ -255,3 +275,21 @@ class JsonRpcResponse(BaseModel):
     id: str | int | None = None
     result: Any = None
     error: JsonRpcError | None = None
+
+
+class TaskListPage(BaseModel):
+    """A2A v1 ``ListTasks`` result (SPEC-CS2-A2A-003).
+
+    All four keys are required by the protocol. ``next_page_token`` is ``""``
+    on the last page and is kept verbatim (DD-CS2-009); tasks stay raw
+    dicts, in the peer's v1 shape.
+    """
+
+    model_config = ConfigDict(
+        extra="allow", alias_generator=to_camel, populate_by_name=True
+    )
+
+    tasks: list[dict[str, Any]]
+    next_page_token: str
+    page_size: int
+    total_size: int

@@ -263,3 +263,15 @@ TENANTS: dict[str, Any] = {
     ],
     "max_tenants": 64,
 }
+
+
+# ── A2A (engine `tests/fixtures/protocols/`; ADR-PRT-001 §2.1) ──────────────
+
+#: v1 wire documents keyed by file stem (agent_card, list_tasks_request, ...).
+A2A_V1: dict[str, Any] = {
+    path.stem: json.loads(path.read_text())
+    for path in sorted((FIXTURES / "a2a_v1").glob("*.json"))
+}
+
+#: The engine's v0.3 Agent Card snapshot (top-level url + protocolVersion).
+A2A_V03_CARD: dict[str, Any] = json.loads((FIXTURES / "a2a_v03_card.json").read_text())

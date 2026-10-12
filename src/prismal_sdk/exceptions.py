@@ -275,3 +275,12 @@ class A2AJsonRpcError(PrismalSDKError):
 # Well-known JSON-RPC codes emitted by prismal-server's inbound A2A routes.
 A2A_UNAUTHENTICATED = -32001  # a2a_strict + no/invalid credential
 A2A_HANDLER_UNAVAILABLE = -32000  # engine's inbound A2A is not composed
+A2A_VERSION_NOT_SUPPORTED = -32009  # A2A v1 VersionNotSupported (ADR-PRT-001)
+
+
+class A2AVersionError(PrismalSDKError):
+    """The call needs another A2A version than the peer speaks (SPEC-CS2-A2A-003).
+
+    Raised by the SDK *before* sending anything (e.g. ``tasks_list`` against a
+    0.3 peer) — unlike :class:`A2AJsonRpcError`, which is the peer's answer.
+    """

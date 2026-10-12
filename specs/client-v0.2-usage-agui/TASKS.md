@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | `READY` |
-| **Version** | 1.5 |
+| **Version** | 1.6 |
 | **Date** | 2026-10-12 |
 | **Author** | Ernesto Crespo |
 | **Companion** | [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) · [`SPEC.md`](./SPEC.md) |
@@ -60,10 +60,10 @@ published for the contract job. Every **[verify]** item (AG-UI 1.0 names, A2A v1
 
 | ID | Task | Est. | Dep | SPEC | Status |
 |---|---|---|---|---|---|
-| CS2-04-01 | `_a2a_methods.py` table; `a2a_protocol` kwarg; `negotiated_version()` from `supportedInterfaces[]` | 0.4 d | 00-02 | A2A-001 | `TODO` |
-| CS2-04-02 | `tasks_list()` + `TaskListPage` (`""` last page, `page_size` 1..100); `A2AVersionError` on v0.3 | 0.4 d | 04-01 | A2A-003 | `TODO` |
-| CS2-04-03 | Version-aware typed wrappers + `A2A-Version: 1.0` header; `agent_card(protocol_version=)` | 0.3 d | 04-01 | A2A-002/004/005 | `TODO` |
-| CS2-04-04 | Tests (`respx`): v0.3 and v1 cards, wrappers, `tasks_list` paging | 0.3 d | 04-03 | A2A-* | `TODO` |
+| CS2-04-01 | `_a2a_methods.py` table; `a2a_protocol` kwarg; `negotiated_version()` from `supportedInterfaces[]` | 0.4 d | 00-02 | A2A-001 | `DONE` |
+| CS2-04-02 | `tasks_list()` + `TaskListPage` (`""` last page, `page_size` 1..100); `A2AVersionError` on v0.3 | 0.4 d | 04-01 | A2A-003 | `DONE` |
+| CS2-04-03 | Version-aware typed wrappers + `A2A-Version: 1.0` header; `agent_card(protocol_version=)` | 0.3 d | 04-01 | A2A-002/004/005 | `DONE` |
+| CS2-04-04 | Tests (`respx`): v0.3 and v1 cards, wrappers, `tasks_list` paging | 0.3 d | 04-03 | A2A-001..007 | `DONE` |
 
 ## Phase 5 — Contract, parity, release
 
@@ -120,3 +120,4 @@ CS2-0 0.9 d · CS2-1 2.5 d · CS2-2 1.8 d · CS2-3 1.7 d · CS2-4 1.4 d · CS2-5
 | 1.3 | 2026-10-12 | Ernesto Crespo | 02-01..04 `DONE` (AG-UI); run out of order, before 01-06/07, by the author's approval |
 | 1.4 | 2026-10-12 | Ernesto Crespo | 01-06/07 `DONE` (admin reads); phase 1 of TASKS complete |
 | 1.5 | 2026-10-12 | Ernesto Crespo | 03-01..03 `DONE` (WebSocket); suite verified on websockets 13.0/py3.10 and 17.2/py3.13 |
+| 1.6 | 2026-10-12 | Ernesto Crespo | 04-01..04 `DONE` (A2A v1, engine fixtures vendored in `tests/fixtures/a2a_v1/`); phases 1–4 complete |

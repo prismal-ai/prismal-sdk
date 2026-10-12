@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | `READY` |
-| **Version** | 1.4 |
+| **Version** | 1.5 |
 | **Date** | 2026-10-12 |
 | **Author** | Ernesto Crespo |
 | **Companion** | [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) · [`TASKS.md`](./TASKS.md) · [`VERIFY-CS2-00.md`](./VERIFY-CS2-00.md) |
@@ -198,15 +198,18 @@ class TaskListPage(BaseModel):                 # ListTasks result: all four keys
     next_page_token: str                       # "" on the last page — kept verbatim, never mapped to None
     page_size: int; total_size: int
 
-# constructor kwarg on both clients (parity): a2a_protocol: Literal["auto", "0.3", "1.0"] = "auto"
+# constructor kwarg on both clients (parity) and ClientConfig (PRISMAL_SDK_A2A_PROTOCOL):
+#   a2a_protocol: Literal["auto", "0.3", "1.0"] = "0.3"      # default = v0.1 behaviour (A2A-006)
 # on both clients (v0.1 location kept):
 def agent_card(self, *, org_id: str | None = None, protocol_version: A2AVersion | None = None) -> AgentCard: ...
 
 class A2ANamespace:                            # client.a2a
-    def negotiated_version(self) -> A2AVersion: ...    # see A2A-001; cached per client
+    def negotiated_version(self, *, org_id: str | None = None) -> A2AVersion: ...  # A2A-001; cached per tenant
     def tasks_list(self, *, context_id: str | None = None, status: str | None = None,
                    page_size: int = 50, page_token: str | None = None,
-                   tenant: str | None = None) -> TaskListPage: ...
+                   tenant: str | None = None, history_length: int | None = None,
+                   status_timestamp_after: str | None = None, include_artifacts: bool | None = None,
+                   request_id: str | int | None = None, org_id: str | None = None) -> TaskListPage: ...
 
 # _a2a_methods.py — the single table (ADR-PRT-001 §2.1)
 A2A_METHODS = {
@@ -219,11 +222,13 @@ A2A_METHODS = {
 
 | ID | Requirement | Prio |
 |---|---|---|
-| SPEC-CS2-A2A-001 | With `a2a_protocol="auto"`, the SDK MUST fetch the Agent Card once and cache the result: IF any `supportedInterfaces[]` entry with `protocolBinding == "JSONRPC"` has a `protocolVersion` of major `1`, THEN `"1.0"`; ELSE IF the card has a top-level `protocolVersion` (v0.3 card shape) of major `1`, THEN `"1.0"`; ELSE `"0.3"`. An explicit `"0.3"`/`"1.0"` skips the fetch. | `MUST` |
-| SPEC-CS2-A2A-002 | Typed wrappers (`message_send`, `message_stream`, `tasks_get`, `tasks_cancel`, `tasks_list`) MUST use the method names of the negotiated version from `A2A_METHODS`; WHEN the negotiated version is `"1.0"`, every `POST /a2a` MUST carry `A2A-Version: 1.0` (an absent header means 0.3 to the peer). | `MUST` |
+| SPEC-CS2-A2A-001 | With `a2a_protocol="auto"`, the SDK MUST fetch the Agent Card once **per effective tenant** (`org_id` or the client default — hosts may pin `a2a_protocol_version` per tenant, `SPEC-RH2-TEN-002`) and cache the result: IF any `supportedInterfaces[]` entry with `protocolBinding == "JSONRPC"` has a `protocolVersion` of major `1`, THEN `"1.0"`; ELSE IF the card has a top-level `protocolVersion` (v0.3 card shape) of major `1`, THEN `"1.0"`; ELSE `"0.3"`. An explicit `"0.3"`/`"1.0"` skips the fetch. | `MUST` |
+| SPEC-CS2-A2A-002 | Typed wrappers (`message_send`, `message_stream`, `tasks_get`, `tasks_cancel`, `tasks_list`) MUST use the method names of the negotiated version from `A2A_METHODS`; WHEN the negotiated version is `"1.0"`, every typed-wrapper `POST /a2a` MUST carry `A2A-Version: 1.0` (an absent header means 0.3 to the peer). Raw `send`/`stream` never negotiate: they carry the header only when the client was built with `a2a_protocol="1.0"`. | `MUST` |
 | SPEC-CS2-A2A-003 | `tasks_list()` against a `"0.3"` peer MUST raise `A2AVersionError` (subclass of `PrismalSDKError`, not of `A2AJsonRpcError`) without sending a request; `page_size` outside `1..100` (protocol maximum) MUST raise `ValueError` before I/O. | `MUST` |
 | SPEC-CS2-A2A-004 | `agent_card(protocol_version=…)` MUST send `?protocolVersion=` (`SPEC-RH2-A2A-002`). | `SHOULD` |
 | SPEC-CS2-A2A-005 | v1 payload shapes (`Part` without `kind`, `TASK_STATE_*`, `ROLE_*`) are the caller's to build; the SDK MUST NOT convert v0.3 ⇄ v1 payloads (boundary rule: transport only). | `MUST` |
+| SPEC-CS2-A2A-006 | The default `a2a_protocol` MUST be `"0.3"`: v0.1 call sites send exactly the v0.1 requests (no implicit Agent Card round-trip, slash method names, no version header). `"auto"` and `"1.0"` are opt-in. | `MUST` |
+| SPEC-CS2-A2A-007 | JSON-RPC calls MUST go to `POST {base_url}/a2a`; interface URLs advertised by an Agent Card MUST NOT be followed, so the bearer token is never sent to a host the caller did not configure. | `MUST` |
 
 ## 6. Admin reads (admin-scoped token)
 
@@ -336,3 +341,4 @@ SYSTEM SHALL pass every CTR-002 case (closes CSB-05-01).
 | 1.2 | 2026-10-12 | Ernesto Crespo | CS2-02: AGU-007 (negotiation header check), AGU-003 usage source on `RUN_ERROR`, AGU-006 data-only frames on the native path |
 | 1.3 | 2026-10-12 | Ernesto Crespo | CS2-01-06/07: ADM-004 (`org_id` is a query filter on admin routes); ADM-003 maps 404/403 by status whatever the body |
 | 1.4 | 2026-10-12 | Ernesto Crespo | CS2-03: WSK-003 names fixed (no `AuthenticationError` existed; `1011` is a WS error, consistent with "all subclass `PrismalWebSocketError`"); new WSK-005 session semantics; `connect()` on sessions |
+| 1.5 | 2026-10-12 | Ernesto Crespo | CS2-04: default `a2a_protocol="0.3"` (new A2A-006; `"auto"` by default would add a card GET before every first call and break v0.1 call sites — PLAN §3 backward-compatibility metric); negotiation cached per tenant; raw-call header rule; `tasks_list` takes the remaining ADR `ListTasks` params + `request_id`/`org_id`; new A2A-007 (never follow card URLs) |

@@ -34,6 +34,7 @@ from prismal_sdk.exceptions import (
     A2AAgentUnavailableError,
     A2AJsonRpcError,
     A2ANotEnabledError,
+    A2AVersionError,
     AdminDisabledError,
     BudgetExceededError,
     ForbiddenError,
@@ -60,6 +61,7 @@ from prismal_sdk.exceptions import (
 )
 from prismal_sdk.models import (
     AgentCard,
+    AgentInterface,
     BudgetAmounts,
     BudgetReport,
     ChatEvent,
@@ -70,6 +72,7 @@ from prismal_sdk.models import (
     QuotaWindow,
     ReadyStatus,
     StateEvent,
+    TaskListPage,
     ThreadCreated,
     TokenEvent,
     ToolCallEvent,
@@ -88,6 +91,8 @@ __all__ = [
     "ClientConfig",
     # Models
     "AgentCard",
+    "AgentInterface",
+    "TaskListPage",
     "ChatEvent",
     "DoneEvent",
     "ErrorEvent",
@@ -142,4 +147,5 @@ __all__ = [
     "WebSocketServerError",
     "WebSocketUnavailableError",
     "A2AJsonRpcError",
+    "A2AVersionError",
 ]
