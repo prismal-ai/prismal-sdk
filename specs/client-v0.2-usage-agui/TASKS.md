@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | **Status** | `READY` |
-| **Version** | 1.0 |
-| **Date** | 2026-10-04 |
+| **Version** | 1.1 |
+| **Date** | 2026-10-12 |
 | **Author** | Ernesto Crespo |
 | **Companion** | [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) · [`SPEC.md`](./SPEC.md) |
 
@@ -15,16 +15,17 @@ omits the `SPEC-CS2-` prefix.
 
 `prismal-server` 0.2 SPEC frozen (`SPEC-RH2-*`); server RH2-06 (fake-LLM mode) merged and an image
 published for the contract job. Every **[verify]** item (AG-UI 1.0 names, A2A v1 method names,
-`websockets` sync API) is closed by a CS2-00 task.
+`websockets` sync API) is closed by a CS2-00 task — all closed on 2026-10-12, see
+[`VERIFY-CS2-00.md`](./VERIFY-CS2-00.md).
 
 ## Phase 0 — Verify & scaffold
 
 | ID | Task | Est. | Dep | SPEC | Status |
 |---|---|---|---|---|---|
-| CS2-00-01 | Confirm host wire (usage keys, `/v1/usage`, `/v1/budget`, AG-UI framing, WS frames); vendor `usage_wire.json` | 0.2 d | server SPEC | USG-001, USE-*, BUD-* | `TODO` |
-| CS2-00-02 | Pin AG-UI 1.0 event names and A2A v1 method names from engine `ADR-PRT-001` **[verify]** | 0.2 d | engine PRT0 | AGU-*, A2A-002 | `TODO` |
-| CS2-00-03 | Choose `websockets` floor with a sync client **[verify]**; add `[ws]` extra | 0.2 d | — | WSK-001, NFR-003 | `TODO` |
-| CS2-00-04 | CI `contract` job: start `prismal-server:0.2.x` with fake-LLM mode; version `0.2.0.dev0` | 0.3 d | server RH2-06 | CTR-001 | `TODO` |
+| CS2-00-01 | Confirm host wire (usage keys, `/v1/usage`, `/v1/budget`, AG-UI framing, WS frames); vendor `usage_wire.json` | 0.2 d | server SPEC | USG-001, USE-*, BUD-* | `DONE` |
+| CS2-00-02 | Pin AG-UI 1.0 event names and A2A v1 method names from engine `ADR-PRT-001`; amend SPEC 1.1 | 0.2 d | engine PRT0 | AGU-*, A2A-* | `DONE` |
+| CS2-00-03 | Choose `websockets` floor with a sync client (`>=13.0`); add `[ws]` extra | 0.2 d | — | WSK-001, NFR-003 | `DONE` |
+| CS2-00-04 | CI `contract` job: start `prismal-server:0.2.x` with fake-LLM mode; version `0.2.0.dev0` | 0.3 d | server RH2-06 | CTR-001 | `BLOCKED` (job wired; first run needs host image) |
 
 ## Phase 1 — Usage & budget
 
@@ -34,7 +35,7 @@ published for the contract job. Every **[verify]** item (AG-UI 1.0 names, A2A v1
 | CS2-01-02 | `UsageTurn`, `UsageReport`, `BudgetAmounts`, `QuotaWindow`, `BudgetReport` | 0.4 d | 01-01 | USE-*, BUD-002 | `TODO` |
 | CS2-01-03 | `usage()` + `iter_usage_turns()` on both clients (RFC 3339, naive-datetime guard, cursor) | 0.5 d | 01-02 | USE-001/002 | `TODO` |
 | CS2-01-04 | `budget()` on both clients | 0.3 d | 01-02 | BUD-001 | `TODO` |
-| CS2-01-05 | Error-map additions (`protocol_not_enabled`, `invalid_window`, `forbidden_tenant`, `tenant_config_invalid`, `cancelled`, `admin_disabled`) | 0.2 d | — | §7 | `TODO` |
+| CS2-01-05 | Error-map additions (`protocol_not_enabled`, `invalid_window`, `forbidden_tenant`, `tenant_config_invalid`, `cancelled`, `admin_disabled`); `BudgetExceededError` fields (`scope`, `limit`, `consumed`, `usage`) | 0.3 d | 01-01 | ERR-001/002 | `TODO` |
 | CS2-01-06 | Admin models: `DecisionShadowReport`, `RoutingSavingsReport`, `AuditPage`, `TenantSummary` (+ rows, `ReportWindow`) | 0.4 d | 00-01 | ADM-001/002 | `TODO` |
 | CS2-01-07 | `decisions_report()`, `routing_report()`, `audit()`, `tenants()` on both clients; 404/403 mapping | 0.4 d | 01-06, 01-05 | ADM-001..003 | `TODO` |
 
@@ -59,9 +60,9 @@ published for the contract job. Every **[verify]** item (AG-UI 1.0 names, A2A v1
 
 | ID | Task | Est. | Dep | SPEC | Status |
 |---|---|---|---|---|---|
-| CS2-04-01 | `_a2a_methods.py` table; `a2a_protocol` kwarg; `negotiated_version()` | 0.4 d | 00-02 | A2A-001 | `TODO` |
-| CS2-04-02 | `tasks_list()` + `TaskListPage`; `A2AVersionError` on v0.3 | 0.4 d | 04-01 | A2A-003 | `TODO` |
-| CS2-04-03 | Version-aware typed wrappers; `agent_card(protocol_version=)` | 0.3 d | 04-01 | A2A-002/004 | `TODO` |
+| CS2-04-01 | `_a2a_methods.py` table; `a2a_protocol` kwarg; `negotiated_version()` from `supportedInterfaces[]` | 0.4 d | 00-02 | A2A-001 | `TODO` |
+| CS2-04-02 | `tasks_list()` + `TaskListPage` (`""` last page, `page_size` 1..100); `A2AVersionError` on v0.3 | 0.4 d | 04-01 | A2A-003 | `TODO` |
+| CS2-04-03 | Version-aware typed wrappers + `A2A-Version: 1.0` header; `agent_card(protocol_version=)` | 0.3 d | 04-01 | A2A-002/004/005 | `TODO` |
 | CS2-04-04 | Tests (`respx`): v0.3 and v1 cards, wrappers, `tasks_list` paging | 0.3 d | 04-03 | A2A-* | `TODO` |
 
 ## Phase 5 — Contract, parity, release
@@ -80,7 +81,7 @@ published for the contract job. Every **[verify]** item (AG-UI 1.0 names, A2A v1
 |---|---|---|
 | USG-001..003 | 01-01 | `tests/unit/test_usage_model.py`, `tests/unit/test_sse_done_usage.py` |
 | USE-001/002, BUD-001/002 | 01-02..04 | `tests/unit/test_usage_budget_{sync,async}.py` |
-| §7 errors | 01-05 | `tests/unit/test_error_map_v02.py` |
+| ERR-001/002 | 01-05 | `tests/unit/test_error_map_v02.py` |
 | ADM-001..003 | 01-06, 01-07 | `tests/unit/test_admin_reports_{sync,async}.py` |
 | AGU-001..006 | 02-01..04 | `tests/unit/test_agui_{models,stream}.py` |
 | WSK-001..004 | 03-01..03 | `tests/unit/test_ws_{sync,async}.py` |
@@ -92,9 +93,9 @@ published for the contract job. Every **[verify]** item (AG-UI 1.0 names, A2A v1
 
 | Risk | Mitigation |
 |---|---|
-| Host image not yet published when SDK work starts | Phases 1–4 run offline; only 05-01 waits on the image |
+| Host image not yet published when SDK work starts — **materialised** (2026-10-12: host RH2-02..07 `TODO`) | Phases 1–4 run offline; 00-04 run, 05-01 and 05-05 wait on the image |
 | AG-UI / A2A names change after PRT0 | Single tables (`AGUI_EVENT_TYPES`, `_a2a_methods.py`); base-model fallback |
-| WS sync client unavailable in chosen library | Sync session wraps the async client in a private event-loop thread |
+| ~~WS sync client unavailable in chosen library~~ — closed at 00-03 (`websockets.sync.client` since 13.0) | — |
 
 ## Definition of Done (v0.2)
 
@@ -114,3 +115,4 @@ CS2-0 0.9 d · CS2-1 2.5 d · CS2-2 1.8 d · CS2-3 1.7 d · CS2-4 1.4 d · CS2-5
 | Version | Date | Author | Changes |
 |---|---|---|---|
 | 1.0 | 2026-10-04 | Ernesto Crespo | Initial task breakdown for client v0.2 |
+| 1.1 | 2026-10-12 | Ernesto Crespo | Phase 0: 00-01..03 `DONE`, 00-04 `BLOCKED` on host image (see `VERIFY-CS2-00.md`); 01-05/04-0x amended per SPEC 1.1 |

@@ -3,15 +3,19 @@
 | Field | Value |
 |---|---|
 | **Status** | `READY` |
-| **Version** | 1.0 |
-| **Date** | 2026-10-04 |
+| **Version** | 1.1 |
+| **Date** | 2026-10-12 |
 | **Author** | Ernesto Crespo |
-| **Companion** | [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) · [`TASKS.md`](./TASKS.md) |
+| **Companion** | [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) · [`TASKS.md`](./TASKS.md) · [`VERIFY-CS2-00.md`](./VERIFY-CS2-00.md) |
 
 Requirement IDs are `SPEC-CS2-<AREA>-NNN`; priority per RFC 2119; acceptance in EARS. v0.1
 requirements (`SPEC-CSB-*`) remain in force unless MODIFIED here. Host clauses are cited as
 `SPEC-RH2-*` (`prismal-server/specs/host-v0.2-usage-gateways-agui/SPEC.md`). Field names below are
 identical to the host wire — no renaming, no aliases.
+
+> **v1.1 (CS2-00-02).** Every protocol name that v1.0 marked **[verify]** is now pinned from engine
+> `prismal/docs/adr/ADR-PRT-001-protocol-pins.md` (2026-10-06). Where the ADR contradicted v1.0 the
+> text below was amended in place; the full diff is recorded in [`VERIFY-CS2-00.md`](./VERIFY-CS2-00.md).
 
 ---
 
@@ -102,13 +106,19 @@ def budget(self, *, thread_id: str | None = None, org_id: str | None = None) -> 
 ## 3. AG-UI streaming
 
 ```python
-class AgUiEvent(BaseModel):                    # base for all 31 AG-UI 1.0 types [verify names]
+class AgUiEvent(BaseModel):                    # base for all 31 AG-UI 1.0 types (ADR-PRT-001 §2.3)
     model_config = ConfigDict(extra="allow", alias_generator=to_camel, populate_by_name=True)
     type: str; timestamp: int | None = None; run_id: str | None = None; thread_id: str | None = None
 
-class RunStarted(AgUiEvent): ...
-class RunFinished(AgUiEvent): result: Any | None = None
-class RunError(AgUiEvent): message: str; code: str | None = None
+# AG-UI 1.0 has no USAGE and no INTERRUPT event (ADR-PRT-001 §2.3):
+#   usage     → RUN_FINISHED.usage / RUN_ERROR.usage (TokenUsage[], camelCase, kept raw)
+#               and, from prismal, CUSTOM "prismal.usage" (the 12-key wire, below)
+#   interrupt → RUN_FINISHED.outcome = {"type": "interrupt", "interrupts": [...]}
+class RunStarted(AgUiEvent): protocol_version: str | None = None    # "1.0"
+class RunFinished(AgUiEvent):
+    result: Any | None = None; outcome: dict[str, Any] | None = None
+    usage: list[dict[str, Any]] | None = None
+class RunError(AgUiEvent): message: str; code: str | None = None; usage: list[dict[str, Any]] | None = None
 class TextMessageStart(AgUiEvent): message_id: str; role: str | None = None
 class TextMessageContent(AgUiEvent): message_id: str; delta: str
 class TextMessageEnd(AgUiEvent): message_id: str
@@ -118,10 +128,17 @@ class ToolCallEnd(AgUiEvent): tool_call_id: str
 class ToolCallResult(AgUiEvent): tool_call_id: str; content: Any; message_id: str | None = None
 class StateSnapshot(AgUiEvent): snapshot: dict[str, Any]
 class StateDelta(AgUiEvent): delta: list[dict[str, Any]]           # RFC 6902
-class SubagentStarted(AgUiEvent): subagent_id: str; name: str | None = None
-class SubagentFinished(AgUiEvent): subagent_id: str
-class Interrupt(AgUiEvent): ...                                    # payload fields kept via extra
+class SubagentStarted(AgUiEvent):
+    subagent_run_id: str; name: str; description: str | None = None
+    parent_subagent_run_id: str | None = None; parent_tool_call_id: str | None = None
+    parent_message_id: str | None = None
+class SubagentFinished(AgUiEvent): subagent_run_id: str; result: Any | None = None; outcome: Any | None = None
+class SubagentError(AgUiEvent): subagent_run_id: str             # remaining fields kept via extra
 class CustomEvent(AgUiEvent): name: str; value: Any = None
+
+# The other pinned types (TEXT_MESSAGE_CHUNK, TOOL_CALL_CHUNK, MESSAGES_SNAPSHOT, ACTIVITY_*, RAW,
+# STEP_*, REASONING_*) are registered in AGUI_EVENT_TYPES as thin subclasses with no required
+# fields beyond `type`; their payload is kept via extra="allow".
 class PrismalUsageEvent(CustomEvent):                              # name == "prismal.usage"
     @property
     def usage(self) -> Usage: ...
@@ -172,25 +189,38 @@ def ws(self, thread_id: str, *, org_id: str | None = None) -> WsSession: ...   #
 ```python
 A2AVersion = Literal["0.3", "1.0"]
 
-class TaskListPage(BaseModel):
+class TaskListPage(BaseModel):                 # ListTasks result: all four keys required (ADR-PRT-001 §2.1)
     model_config = ConfigDict(extra="allow", alias_generator=to_camel, populate_by_name=True)
-    tasks: list[dict[str, Any]]; next_page_token: str | None = None
+    tasks: list[dict[str, Any]]
+    next_page_token: str                       # "" on the last page — kept verbatim, never mapped to None
+    page_size: int; total_size: int
 
 # constructor kwarg on both clients (parity): a2a_protocol: Literal["auto", "0.3", "1.0"] = "auto"
-class A2ANamespace:
-    def agent_card(self, *, org_id: str | None = None, protocol_version: A2AVersion | None = None) -> AgentCard: ...
-    def negotiated_version(self) -> A2AVersion: ...    # from card protocolVersion; cached per client
+# on both clients (v0.1 location kept):
+def agent_card(self, *, org_id: str | None = None, protocol_version: A2AVersion | None = None) -> AgentCard: ...
+
+class A2ANamespace:                            # client.a2a
+    def negotiated_version(self) -> A2AVersion: ...    # see A2A-001; cached per client
     def tasks_list(self, *, context_id: str | None = None, status: str | None = None,
                    page_size: int = 50, page_token: str | None = None,
                    tenant: str | None = None) -> TaskListPage: ...
+
+# _a2a_methods.py — the single table (ADR-PRT-001 §2.1)
+A2A_METHODS = {
+    "0.3": {"message_send": "message/send", "message_stream": "message/stream",
+            "tasks_get": "tasks/get", "tasks_cancel": "tasks/cancel"},            # no tasks_list
+    "1.0": {"message_send": "SendMessage", "message_stream": "SendStreamingMessage",
+            "tasks_get": "GetTask", "tasks_cancel": "CancelTask", "tasks_list": "ListTasks"},
+}
 ```
 
 | ID | Requirement | Prio |
 |---|---|---|
-| SPEC-CS2-A2A-001 | With `a2a_protocol="auto"`, the SDK MUST read `protocolVersion` from the Agent Card (major `1` ⇒ `"1.0"`, else `"0.3"`) once and cache it. | `MUST` |
-| SPEC-CS2-A2A-002 | Typed wrappers (`message_send`, `message_stream`, `tasks_get`, `tasks_cancel`) MUST use the method names of the negotiated version from a single constants table (v1 names pinned from engine `ADR-PRT-001` **[verify]**). | `MUST` |
-| SPEC-CS2-A2A-003 | `tasks_list()` against a `"0.3"` peer MUST raise `A2AVersionError` (subclass of `PrismalSDKError`, not of `A2AJsonRpcError`) without sending a request. | `MUST` |
+| SPEC-CS2-A2A-001 | With `a2a_protocol="auto"`, the SDK MUST fetch the Agent Card once and cache the result: IF any `supportedInterfaces[]` entry with `protocolBinding == "JSONRPC"` has a `protocolVersion` of major `1`, THEN `"1.0"`; ELSE IF the card has a top-level `protocolVersion` (v0.3 card shape) of major `1`, THEN `"1.0"`; ELSE `"0.3"`. An explicit `"0.3"`/`"1.0"` skips the fetch. | `MUST` |
+| SPEC-CS2-A2A-002 | Typed wrappers (`message_send`, `message_stream`, `tasks_get`, `tasks_cancel`, `tasks_list`) MUST use the method names of the negotiated version from `A2A_METHODS`; WHEN the negotiated version is `"1.0"`, every `POST /a2a` MUST carry `A2A-Version: 1.0` (an absent header means 0.3 to the peer). | `MUST` |
+| SPEC-CS2-A2A-003 | `tasks_list()` against a `"0.3"` peer MUST raise `A2AVersionError` (subclass of `PrismalSDKError`, not of `A2AJsonRpcError`) without sending a request; `page_size` outside `1..100` (protocol maximum) MUST raise `ValueError` before I/O. | `MUST` |
 | SPEC-CS2-A2A-004 | `agent_card(protocol_version=…)` MUST send `?protocolVersion=` (`SPEC-RH2-A2A-002`). | `SHOULD` |
+| SPEC-CS2-A2A-005 | v1 payload shapes (`Part` without `kind`, `TASK_STATE_*`, `ROLE_*`) are the caller's to build; the SDK MUST NOT convert v0.3 ⇄ v1 payloads (boundary rule: transport only). | `MUST` |
 
 ## 6. Admin reads (admin-scoped token)
 
@@ -258,11 +288,16 @@ def tenants(self) -> list[TenantSummary]: ...
 | `admin_disabled` | `AdminDisabledError(PrismalAPIError)` |
 | `budget_exceeded` (HTTP 402 or stream `error`) | `BudgetExceededError(PrismalAPIError)` with `.scope`, `.limit`, `.consumed`, `.usage` |
 
+| ID | Requirement | Prio |
+|---|---|---|
+| SPEC-CS2-ERR-001 | Every host code above MUST map to its exception through the single v0.1 code table, for HTTP error bodies, native stream `error` events, AG-UI `RUN_ERROR` and WS `error` frames alike; the class is chosen by `code`, never by HTTP status. | `MUST` |
+| SPEC-CS2-ERR-002 | `BudgetExceededError` MUST expose `scope`, `limit`, `consumed` (read verbatim from the `error` object of a `402` body) and `usage` (`Usage` from a mid-stream `error` event's partial usage); each is `None` when the host omits it. v0.1's `429` mapping stays valid — mapping is by code (ERR-001). | `MUST` |
+
 ## 8. Contract suite & non-functional
 
 | ID | Requirement | Prio |
 |---|---|---|
-| SPEC-CS2-CTR-001 | `tests/contract/` MUST run against `prismal-server` 0.2 with `host_fake_llm_mode=true` and assert the `X-Prismal-Fake-LLM: 1` header; it MUST skip (exit 0) when no host is reachable. | `MUST` |
+| SPEC-CS2-CTR-001 | `tests/contract/` MUST run against `prismal-server` 0.2 with `host_fake_llm_mode=true` and assert the `X-Prismal-Fake-LLM: 1` header; the base URL is read from `PRISMAL_BASE_URL` (default `http://localhost:8000`); it MUST skip (exit 0) when no host is reachable. | `MUST` |
 | SPEC-CS2-CTR-002 | It MUST cover: health/ready; native turn (`"echo: …"` tokens, `DoneEvent.usage` equal to `SPEC-RH2-FAK-002`); `/tool` → `ToolCallEvent`; `/error` → mapped exception; AG-UI turn (`RunStarted` … `PrismalUsageEvent` → `RunFinished`); `usage()` contains the turn; `budget()` parses; WS turn (when `[ws]`); Agent Card + A2A v1 `tasks_list` (when A2A enabled); admin `decisions_report`/`routing_report`/`audit`/`tenants` (when `host_admin_enabled`). | `MUST` |
 | SPEC-CS2-NFR-001 | The AST import guard (SPEC-CSB-TRN-004) MUST still forbid `prismal` / `prismal_server` imports. | `MUST` |
 | SPEC-CS2-NFR-002 | The parity test (SPEC-CSB-NFR-001) MUST include `usage`, `iter_usage_turns`, `budget`, `ws`, `send_message(protocol=…)`, `a2a.tasks_list`, `a2a.negotiated_version`, `decisions_report`, `routing_report`, `audit`, `tenants`. | `MUST` |
@@ -284,6 +319,7 @@ SYSTEM SHALL pass every CTR-002 case (closes CSB-05-01).
 | RF-CS2-007 | SPEC-CS2-NFR-002 |
 | RF-CS2-008 | SPEC-CS2-NFR-001/003 |
 | RF-CS2-009 | SPEC-CS2-ADM-* |
+| RF-CS2-002/003/009 (errors) | SPEC-CS2-ERR-001/002 |
 
 ---
 
@@ -292,3 +328,4 @@ SYSTEM SHALL pass every CTR-002 case (closes CSB-05-01).
 | Version | Date | Author | Changes |
 |---|---|---|---|
 | 1.0 | 2026-10-04 | Ernesto Crespo | Initial technical spec for client v0.2 |
+| 1.1 | 2026-10-12 | Ernesto Crespo | CS2-00: pins from ADR-PRT-001 — A2A negotiation via `supportedInterfaces` + `A2A-Version` header, PascalCase v1 methods table, `TaskListPage` (4 required keys, `""` last page), `page_size ≤ 100`, A2A-005; AG-UI without `Interrupt`, `subagentRunId`, `SubagentError`, `RunFinished.outcome/usage`; new ERR-001/002 (cited by `SPEC-RH2` §11); `PRISMAL_BASE_URL` in CTR-001 |

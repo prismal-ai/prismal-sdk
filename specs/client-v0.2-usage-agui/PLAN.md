@@ -4,8 +4,8 @@
 |---|---|
 | **Author** | Ernesto Crespo |
 | **Status** | `READY` |
-| **Version** | 1.0 |
-| **Date** | 2026-10-04 |
+| **Version** | 1.1 |
+| **Date** | 2026-10-12 |
 | **Target version** | `0.2.0` |
 | **Prefix** | `CS2` (requirements `SPEC-CS2-<AREA>-NNN`, tasks `CS2-0x-yy`) |
 | **Companion** | [`SPEC.md`](./SPEC.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) · [`TASKS.md`](./TASKS.md) |
@@ -79,8 +79,10 @@ Critical path: server RH2-06 (fake mode) → CS2-0 → CS2-5-01. CS2-1…4 paral
 | Risk | Mitigation |
 |---|---|
 | Server wire changes after SDK release | Contract suite pinned to server image tag; fixture vendored from engine |
-| AG-UI 1.0 event names differ from current knowledge **[verify]** | Models keyed by `type` string with `extra="allow"`; unknown types parsed as base `AgUiEvent` |
-| `websockets` API differences (sync client) **[verify]** | Deferred import behind `[ws]`; one adapter module; version floor pinned at CS2-00-03 |
+| ~~AG-UI 1.0 event names differ from current knowledge~~ — **materialised and closed** at CS2-00-02 (no `INTERRUPT`, `subagentRunId`, `SUBAGENT_ERROR`); SPEC 1.1 amended | Models keyed by `type` string with `extra="allow"`; unknown types parsed as base `AgUiEvent` |
+| ~~`websockets` sync API~~ — **closed** at CS2-00-03: floor `websockets>=13.0` | Deferred import behind `[ws]`; one adapter module |
+| A2A v1 card has no top-level `protocolVersion` (ADR-PRT-001) — **materialised**, SPEC-CS2-A2A-001 amended | Negotiate from `supportedInterfaces[]`; fall back to the v0.3 card shape |
+| Host v0.2 not built yet: on 2026-10-12 only RH2-0/RH2-1 are `DONE` (no `/v1/usage`, AG-UI, WS, A2A v1, fake mode or image) | Phases 1–5 build against the documented wire offline; CS2-00-04 run + CS2-05-01 + tag stay `BLOCKED` until host RH2-06/07-04 |
 | Releasing without a green contract run (v0.1 lesson) | `v0.2.0` tag depends on CS2-05-01 green in CI |
 
 ## 7. References
@@ -96,3 +98,4 @@ AG-UI 1.0 — https://www.copilotkit.ai/blog/ag-ui-1.0 · A2A — https://github
 | Version | Date | Author | Changes |
 |---|---|---|---|
 | 1.0 | 2026-10-04 | Ernesto Crespo | Initial plan for client v0.2 |
+| 1.1 | 2026-10-12 | Ernesto Crespo | Risks updated after CS2-00 verification; host-readiness risk added |

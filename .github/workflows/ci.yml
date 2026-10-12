@@ -6,6 +6,11 @@ on:
   pull_request:
   # Required for the opt-in `contract` job below, which gates on this event.
   workflow_dispatch:
+    inputs:
+      server_image:
+        description: "prismal-server image to test against (fake-LLM mode)"
+        required: false
+        default: "ghcr.io/prismal-ai/prismal-server:0.2.0"
 
 jobs:
   unit:
@@ -35,14 +40,42 @@ jobs:
 
   contract:
     runs-on: ubuntu-latest
-    # Opt-in: only runs when explicitly dispatched, since it needs a live
-    # prismal-server instance. See tests/contract/test_contract_smoke.py.
+    # Opt-in: only runs when explicitly dispatched. It is the v0.2 release gate
+    # (DD-CS2-008, CS2-00-04): a prismal-server 0.2 image in fake-LLM mode, so
+    # the suite needs no provider credentials (SPEC-CS2-CTR-001, closes
+    # CSB-05-01). BLOCKED until the host publishes that image (RH2-06/07-04).
     if: github.event_name == 'workflow_dispatch'
+    services:
+      prismal-server:
+        image: ${{ inputs.server_image || 'ghcr.io/prismal-ai/prismal-server:0.2.0' }}
+        ports:
+          - 8000:8000
+        env:
+          PRISMAL_SERVER_HOST_FAKE_LLM_MODE: "true"
+          PRISMAL_SERVER_HOST_ENVIRONMENT: development
+          PRISMAL_SERVER_HOST_WS_ENABLED: "true"
+          PRISMAL_SERVER_HOST_AGUI_ENABLED: "true"
+          PRISMAL_SERVER_HOST_ADMIN_ENABLED: "true"
+        options: >-
+          --health-cmd "curl -fsS http://localhost:8000/healthz || exit 1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 24
+    env:
+      PRISMAL_BASE_URL: http://localhost:8000
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
         uses: astral-sh/setup-uv@v3
+      - name: Set up Python
+        run: uv python install
       - name: Install
-        run: uv sync --extra dev --locked
+        run: uv sync --extra dev --extra ws --locked
+      # The suite skips (exit 0) when no host answers; in this job a skip
+      # would be a false green, so assert the fake-mode host is really up.
+      - name: Assert fake-LLM host is up
+        run: |
+          curl -fsS -D - -o /dev/null "$PRISMAL_BASE_URL/healthz" \
+            | grep -i '^x-prismal-fake-llm: 1'
       - name: Contract suite
         run: uv run pytest -m contract
