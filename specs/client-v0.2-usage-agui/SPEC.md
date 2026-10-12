@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | `READY` |
-| **Version** | 1.2 |
+| **Version** | 1.3 |
 | **Date** | 2026-10-12 |
 | **Author** | Ernesto Crespo |
 | **Companion** | [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) · [`TASKS.md`](./TASKS.md) · [`VERIFY-CS2-00.md`](./VERIFY-CS2-00.md) |
@@ -273,7 +273,8 @@ def tenants(self) -> list[TenantSummary]: ...
 |---|---|---|
 | SPEC-CS2-ADM-001 | `decisions_report()` / `routing_report()` MUST `GET /v1/admin/decisions` / `/v1/admin/routing` and return the typed reports; `enabled=false` is a valid result, not an error. | `MUST` |
 | SPEC-CS2-ADM-002 | `audit()` MUST `GET /v1/admin/audit?page=&page_size=` and `tenants()` MUST `GET /v1/admin/tenants` (unwrapping `tenants`). | `MUST` |
-| SPEC-CS2-ADM-003 | `404` on any admin route MUST raise `AdminDisabledError`; `403` MUST raise `ForbiddenError`; the SDK MUST NOT recompute agreement, savings or chain status. | `MUST` |
+| SPEC-CS2-ADM-003 | `404` on any admin route MUST raise `AdminDisabledError` and `403` MUST raise `ForbiddenError`, whatever the body (FastAPI `{"detail"}` included; the host's `code`/`message` kept when present); the SDK MUST NOT recompute agreement, savings or chain status. | `MUST` |
+| SPEC-CS2-ADM-004 | On admin reads `org_id` MUST be sent as the `org_id` **query** parameter (`SPEC-RH2-ADM-003..005`; `"*"` = all tenants, needs `prismal:admin:global`), never as `X-Org-Id` — that header keeps the client's own tenant (`SPEC-RH2-USE-004` would answer `403 forbidden_tenant` to `X-Org-Id: *`). | `MUST` |
 
 **EARS:** WHEN the host reports `"agreement_ratio": null`, THE SYSTEM SHALL expose `None` without error.
 
@@ -331,3 +332,4 @@ SYSTEM SHALL pass every CTR-002 case (closes CSB-05-01).
 | 1.0 | 2026-10-04 | Ernesto Crespo | Initial technical spec for client v0.2 |
 | 1.1 | 2026-10-12 | Ernesto Crespo | CS2-00: pins from ADR-PRT-001 — A2A negotiation via `supportedInterfaces` + `A2A-Version` header, PascalCase v1 methods table, `TaskListPage` (4 required keys, `""` last page), `page_size ≤ 100`, A2A-005; AG-UI without `Interrupt`, `subagentRunId`, `SubagentError`, `RunFinished.outcome/usage`; new ERR-001/002 (cited by `SPEC-RH2` §11); `PRISMAL_BASE_URL` in CTR-001 |
 | 1.2 | 2026-10-12 | Ernesto Crespo | CS2-02: AGU-007 (negotiation header check), AGU-003 usage source on `RUN_ERROR`, AGU-006 data-only frames on the native path |
+| 1.3 | 2026-10-12 | Ernesto Crespo | CS2-01-06/07: ADM-004 (`org_id` is a query filter on admin routes); ADM-003 maps 404/403 by status whatever the body |

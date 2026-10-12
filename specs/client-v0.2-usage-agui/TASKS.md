@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | `READY` |
-| **Version** | 1.3 |
+| **Version** | 1.4 |
 | **Date** | 2026-10-12 |
 | **Author** | Ernesto Crespo |
 | **Companion** | [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) · [`SPEC.md`](./SPEC.md) |
@@ -36,8 +36,8 @@ published for the contract job. Every **[verify]** item (AG-UI 1.0 names, A2A v1
 | CS2-01-03 | `usage()` + `iter_usage_turns()` on both clients (RFC 3339, naive-datetime guard, cursor) | 0.5 d | 01-02 | USE-001/002 | `DONE` |
 | CS2-01-04 | `budget()` on both clients | 0.3 d | 01-02 | BUD-001 | `DONE` |
 | CS2-01-05 | Error-map additions (`protocol_not_enabled`, `invalid_window`, `forbidden_tenant`, `tenant_config_invalid`, `cancelled`, `admin_disabled`); `BudgetExceededError` fields (`scope`, `limit`, `consumed`, `usage`) | 0.3 d | 01-01 | ERR-001/002 | `DONE` |
-| CS2-01-06 | Admin models: `DecisionShadowReport`, `RoutingSavingsReport`, `AuditPage`, `TenantSummary` (+ rows, `ReportWindow`) | 0.4 d | 00-01 | ADM-001/002 | `TODO` |
-| CS2-01-07 | `decisions_report()`, `routing_report()`, `audit()`, `tenants()` on both clients; 404/403 mapping | 0.4 d | 01-06, 01-05 | ADM-001..003 | `TODO` |
+| CS2-01-06 | Admin models: `DecisionShadowReport`, `RoutingSavingsReport`, `AuditPage`, `TenantSummary` (+ rows, `ReportWindow`) | 0.4 d | 00-01 | ADM-001/002 | `DONE` |
+| CS2-01-07 | `decisions_report()`, `routing_report()`, `audit()`, `tenants()` on both clients; 404/403 mapping | 0.4 d | 01-06, 01-05 | ADM-001..004 | `DONE` |
 
 ## Phase 2 — AG-UI
 
@@ -118,3 +118,4 @@ CS2-0 0.9 d · CS2-1 2.5 d · CS2-2 1.8 d · CS2-3 1.7 d · CS2-4 1.4 d · CS2-5
 | 1.1 | 2026-10-12 | Ernesto Crespo | Phase 0: 00-01..03 `DONE`, 00-04 `BLOCKED` on host image (see `VERIFY-CS2-00.md`); 01-05/04-0x amended per SPEC 1.1 |
 | 1.2 | 2026-10-12 | Ernesto Crespo | 01-01..05 `DONE` (usage, budget, v0.2 error map); coverage ratchet 93 → 95 |
 | 1.3 | 2026-10-12 | Ernesto Crespo | 02-01..04 `DONE` (AG-UI); run out of order, before 01-06/07, by the author's approval |
+| 1.4 | 2026-10-12 | Ernesto Crespo | 01-06/07 `DONE` (admin reads); phase 1 of TASKS complete |

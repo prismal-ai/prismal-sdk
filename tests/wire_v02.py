@@ -161,3 +161,105 @@ def agui_body(events: list[dict[str, Any]], *, heartbeats: bool = True) -> bytes
         if heartbeats:
             chunks.append(": heartbeat\n\n")
     return "".join(chunks).encode()
+
+
+# ── Admin reads (host SPEC §9, SPEC-RH2-ADM-002..005) ──────────────────────
+
+_WINDOW = {"since": "2026-09-27T12:00:00Z", "until": "2026-10-04T12:00:00Z"}
+
+DECISIONS_REPORT: dict[str, Any] = {
+    "org_id": "acme",
+    "enabled": True,
+    "window": _WINDOW,
+    "integrations": [
+        {
+            "integration": "routing",
+            "mode": "shadow",
+            "samples": 2412,
+            "agreement_ratio": 0.974,
+            "accepted": 1830,
+            "escalated": 402,
+            "abstained": 180,
+            "llm_calls_avoided": 1830,
+            "window": {"since": "2026-09-30T08:15:00Z", "until": _WINDOW["until"]},
+        }
+    ],
+    "as_of": "2026-10-04T12:00:00Z",
+}
+
+ROUTING_REPORT: dict[str, Any] = {
+    "org_id": "acme",
+    "enabled": True,
+    "mode": "shadow",
+    "window": _WINDOW,
+    "policies": [
+        {
+            "policy": "composite",
+            "decisions": 5120,
+            "decisions_by_tier": {"small": 3900, "medium": 1000, "frontier": 220},
+            "escalations": 140,
+            "escalations_by_reason": {
+                "inadequate": 90,
+                "structured_invalid": 40,
+                "tool_errors": 10,
+            },
+            "plan_cache_hits": 610,
+            "estimated_savings_usd": 12.43,
+            "window": _WINDOW,
+        }
+    ],
+    "as_of": "2026-10-04T12:00:00Z",
+}
+
+AUDIT_PAGE: dict[str, Any] = {
+    "page": 1,
+    "page_size": 50,
+    "total": 2,
+    "entries": [
+        {
+            "seq": 1,
+            "ts": "2026-10-04T11:00:00Z",
+            "event": "a2a.inbound.tenant_mismatch",
+            "actor": "svc-1",
+            "org_id": "acme",
+            "hash": "h1",
+            "prev_hash": None,
+            "fields": {"method": "ListTasks"},
+        },
+        {
+            "seq": 2,
+            "ts": "2026-10-04T11:05:00Z",
+            "event": "budget.hard_exceeded",
+            "actor": None,
+            "org_id": "acme",
+            "hash": "h2",
+            "prev_hash": "h1",
+            "fields": {},
+        },
+    ],
+    "chain": {"status": "valid", "checked": 2, "first_broken_seq": None},
+}
+
+TENANTS: dict[str, Any] = {
+    "tenants": [
+        {
+            "org_id": "acme",
+            "live": True,
+            "created_at": "2026-10-01T00:00:00Z",
+            "last_used_at": "2026-10-04T11:59:00Z",
+            "gateways": ["openrouter", "opencode_go"],
+            "a2a_protocol_version": "1.0",
+            "config_source": "vault",
+        },
+        {
+            "org_id": "globex",
+            "live": False,
+            "created_at": None,
+            "last_used_at": None,
+            "gateways": [],
+            "a2a_protocol_version": None,
+            "config_source": "process",
+        },
+    ],
+    "max_tenants": 64,
+}

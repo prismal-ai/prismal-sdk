@@ -28,6 +28,14 @@ from prismal_sdk._transport import (
     raise_for_response,
     wrap_transport_exception,
 )
+from prismal_sdk.admin import (
+    AuditPage,
+    DecisionShadowReport,
+    RoutingSavingsReport,
+    TenantsEnvelope,
+    TenantSummary,
+    raise_for_admin_response,
+)
 from prismal_sdk.agui import AgUiEvent, StreamProtocol
 from prismal_sdk.config import DEFAULT_BASE_URL, ClientConfig
 from prismal_sdk.exceptions import A2ANotEnabledError, PrismalAPIError, error_for_code
@@ -394,6 +402,67 @@ class PrismalClient:
         response = self._request("GET", "/v1/budget", params=params, org_id=org_id)
         raise_for_response(response)
         return BudgetReport.model_validate(decode_json(response))
+
+    def decisions_report(
+        self,
+        *,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        org_id: str | None = None,
+    ) -> DecisionShadowReport:
+        """``GET /v1/admin/decisions`` — decision shadow stats (SPEC-CS2-ADM-001).
+
+        Needs an admin-scoped token. ``org_id`` is the report's tenant
+        filter, sent as a query parameter (``"*"`` = every tenant, which
+        needs ``prismal:admin:global``); ``X-Org-Id`` stays the client's.
+        Host defaults: the last 7 days.
+        """
+        params = build_query({"org_id": org_id, "since": since, "until": until})
+        response = self._request("GET", "/v1/admin/decisions", params=params)
+        raise_for_admin_response(response)
+        return DecisionShadowReport.model_validate(decode_json(response))
+
+    def routing_report(
+        self,
+        *,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        org_id: str | None = None,
+    ) -> RoutingSavingsReport:
+        """``GET /v1/admin/routing`` — routing savings (SPEC-CS2-ADM-001).
+
+        Same scope and ``org_id`` semantics as :meth:`decisions_report`.
+        """
+        params = build_query({"org_id": org_id, "since": since, "until": until})
+        response = self._request("GET", "/v1/admin/routing", params=params)
+        raise_for_admin_response(response)
+        return RoutingSavingsReport.model_validate(decode_json(response))
+
+    def audit(
+        self,
+        page: int = 1,
+        page_size: int = 50,
+        *,
+        since: datetime | None = None,
+        org_id: str | None = None,
+    ) -> AuditPage:
+        """``GET /v1/admin/audit`` — one 1-based page of the audit log.
+
+        The chain status is the engine's verification, not re-checked here
+        (SPEC-CS2-ADM-002/003). ``org_id`` as in :meth:`decisions_report`.
+        """
+        params = build_query(
+            {"page": page, "page_size": page_size, "since": since, "org_id": org_id}
+        )
+        response = self._request("GET", "/v1/admin/audit", params=params)
+        raise_for_admin_response(response)
+        return AuditPage.model_validate(decode_json(response))
+
+    def tenants(self) -> list[TenantSummary]:
+        """``GET /v1/admin/tenants`` — the host's tenants (SPEC-CS2-ADM-002)."""
+        response = self._request("GET", "/v1/admin/tenants")
+        raise_for_admin_response(response)
+        return TenantsEnvelope.model_validate(decode_json(response)).tenants
 
     def agent_card(self, *, org_id: str | None = None) -> AgentCard:
         """``GET /.well-known/agent-card.json`` (SPEC-CSB-A2A-001)."""

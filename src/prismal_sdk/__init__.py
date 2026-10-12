@@ -14,6 +14,12 @@ It never imports ``prismal`` or ``prismal_server`` — see ``CLAUDE.md``,
 
 from __future__ import annotations
 
+from prismal_sdk.admin import (
+    AuditPage,
+    DecisionShadowReport,
+    RoutingSavingsReport,
+    TenantSummary,
+)
 from prismal_sdk.agui import (
     AgUiEvent,
     PrismalUsageEvent,
@@ -91,6 +97,11 @@ __all__ = [
     "BudgetAmounts",
     "BudgetReport",
     "QuotaWindow",
+    # Admin reads (full set in prismal_sdk.admin)
+    "AuditPage",
+    "DecisionShadowReport",
+    "RoutingSavingsReport",
+    "TenantSummary",
     # AG-UI (full set in prismal_sdk.agui)
     "AgUiEvent",
     "PrismalUsageEvent",

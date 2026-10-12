@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | `READY` |
-| **Version** | 1.1 |
+| **Version** | 1.2 |
 | **Date** | 2026-10-12 |
 | **Author** | Ernesto Crespo |
 | **Companion** | [`PLAN.md`](./PLAN.md) · [`SPEC.md`](./SPEC.md) · [`TASKS.md`](./TASKS.md) |
@@ -43,7 +43,7 @@ dispatch), `client.py` / `async_client.py`, `models.py`, `_sse.py` (frame parser
 | `_ws.py` | new | `WsSession` / `AsyncWsSession`, frame codec, close-code mapping (deferred `websockets` import) |
 | `a2a.py` | ext | `negotiated_version`, `tasks_list`, version-aware wrappers |
 | `_a2a_methods.py` | new | single constants table `{"0.3": {...}, "1.0": {...}}` |
-| `admin.py` | new | admin report models + `decisions_report`, `routing_report`, `audit`, `tenants` mixins |
+| `admin.py` | new | admin report models + `raise_for_admin_response` (404/403 by status); `decisions_report`, `routing_report`, `audit`, `tenants` live on both clients like every other call |
 | `exceptions.py` | ext | new subclasses (SPEC §4, §5, §7) |
 | `tests/fixtures/usage_wire.json` | new | vendored copy of the engine/host shared fixture |
 
@@ -151,3 +151,4 @@ GHCR `prismal-server:0.2.0` image with `PRISMAL_SERVER_HOST_FAKE_LLM_MODE=true` 
 |---|---|---|---|
 | 1.0 | 2026-10-04 | Ernesto Crespo | Initial architecture for client v0.2 |
 | 1.1 | 2026-10-12 | Ernesto Crespo | CS2-00: `websockets>=13.0` verified; AG-UI/A2A flows amended per ADR-PRT-001; DD-CS2-009 |
+| 1.2 | 2026-10-12 | Ernesto Crespo | `admin.py` row: no mixins — methods on the clients, shared error helper |
