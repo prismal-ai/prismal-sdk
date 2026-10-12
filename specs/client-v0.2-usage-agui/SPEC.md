@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | `READY` |
-| **Version** | 1.3 |
+| **Version** | 1.4 |
 | **Date** | 2026-10-12 |
 | **Author** | Ernesto Crespo |
 | **Companion** | [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) · [`TASKS.md`](./TASKS.md) · [`VERIFY-CS2-00.md`](./VERIFY-CS2-00.md) |
@@ -170,10 +170,11 @@ def send_message(self, thread_id: str, content: str, *, role: str = "user",
 
 ```python
 class WsSession:                               # AsyncWsSession mirrors it with async methods
+    def connect(self) -> None: ...             # on `with` entry, or lazily on the first turn
     def send_message(self, content: str, *, role: str = "user", metadata: dict[str, Any] | None = None,
                      protocol: Literal["prismal", "ag-ui"] = "prismal") -> Iterator[ChatEvent | AgUiEvent]: ...
-    def cancel(self) -> None: ...
-    def close(self) -> None: ...               # also via context manager
+    def cancel(self) -> None: ...              # sync: callable from another thread
+    def close(self) -> None: ...               # idempotent; also via context manager
 
 def ws(self, thread_id: str, *, org_id: str | None = None) -> WsSession: ...   # on both clients
 ```
@@ -182,8 +183,9 @@ def ws(self, thread_id: str, *, org_id: str | None = None) -> WsSession: ...   #
 |---|---|---|
 | SPEC-CS2-WSK-001 | `ws()` MUST connect to `ws(s)://<base>/ws/threads/{id}` with the same `Authorization` / `X-Org-Id` headers as HTTP; the `websockets` import is deferred and its absence raises `WebSocketUnavailableError` with an install hint. | `SHOULD` |
 | SPEC-CS2-WSK-002 | Client frames and server frames MUST follow `SPEC-RH2-WSK-002`; `{"event":<native>,"data":…}` frames parse into the v0.1 event models, `{"event":"agui","data":…}` via `parse_agui_event`; `heartbeat`/`pong` are never yielded. | `SHOULD` |
-| SPEC-CS2-WSK-003 | Close codes MUST map to exceptions: `1008` → `AuthenticationError`, `4409` → `TurnInProgressError`, `4400` → `WebSocketProtocolError`, `1009` → `MessageTooLargeError`, `1011` → `PrismalAPIError`; all subclass `PrismalWebSocketError(PrismalTransportError)`. | `SHOULD` |
+| SPEC-CS2-WSK-003 | Close codes MUST map to exceptions: `1008` → `WebSocketAuthenticationError`, `4409` → `TurnInProgressError`, `4400` → `WebSocketProtocolError` (also an undecodable server frame), `1009` → `MessageTooLargeError`, `1011` → `WebSocketServerError`, any other code → `PrismalWebSocketError`; all subclass `PrismalWebSocketError(PrismalTransportError)` and carry `close_code`/`reason`. A rejected upgrade is an HTTP response: its error body maps through the ERR-001 table. | `SHOULD` |
 | SPEC-CS2-WSK-004 | WebSocket turns MUST NOT be retried automatically (SPEC-CSB-RSL-002 applies). | `MUST` |
+| SPEC-CS2-WSK-005 | A session MUST run one turn at a time and keep turns apart: abandoning a turn's iterator before its terminal event MUST send `cancel` (the WS form of SPEC-CSB-CHT-006), and the next `send_message` MUST first drain the abandoned turn up to its `done`/`error`/`RUN_FINISHED`/`RUN_ERROR`; a `break` on the terminal event sends nothing. Each wait for a frame is bounded by the client `timeout_s` (like the SSE read timeout; the host heartbeats) and raises `PrismalTimeoutError`. | `SHOULD` |
 
 ## 5. A2A v1.0
 
@@ -333,3 +335,4 @@ SYSTEM SHALL pass every CTR-002 case (closes CSB-05-01).
 | 1.1 | 2026-10-12 | Ernesto Crespo | CS2-00: pins from ADR-PRT-001 — A2A negotiation via `supportedInterfaces` + `A2A-Version` header, PascalCase v1 methods table, `TaskListPage` (4 required keys, `""` last page), `page_size ≤ 100`, A2A-005; AG-UI without `Interrupt`, `subagentRunId`, `SubagentError`, `RunFinished.outcome/usage`; new ERR-001/002 (cited by `SPEC-RH2` §11); `PRISMAL_BASE_URL` in CTR-001 |
 | 1.2 | 2026-10-12 | Ernesto Crespo | CS2-02: AGU-007 (negotiation header check), AGU-003 usage source on `RUN_ERROR`, AGU-006 data-only frames on the native path |
 | 1.3 | 2026-10-12 | Ernesto Crespo | CS2-01-06/07: ADM-004 (`org_id` is a query filter on admin routes); ADM-003 maps 404/403 by status whatever the body |
+| 1.4 | 2026-10-12 | Ernesto Crespo | CS2-03: WSK-003 names fixed (no `AuthenticationError` existed; `1011` is a WS error, consistent with "all subclass `PrismalWebSocketError`"); new WSK-005 session semantics; `connect()` on sessions |

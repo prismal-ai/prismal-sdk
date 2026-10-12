@@ -211,6 +211,49 @@ class PrismalTimeoutError(PrismalTransportError):
     """Connect or read timeout (``httpx.TimeoutException``)."""
 
 
+# ── WebSocket session errors (SPEC-CS2-WSK-003) ────────────────────────────
+
+
+class PrismalWebSocketError(PrismalTransportError):
+    """A WebSocket session ended abnormally.
+
+    ``close_code``/``reason`` come from the close frame; ``close_code`` is
+    ``None`` when there was none (e.g. a malformed server frame). Codes
+    without a dedicated subclass raise this base class.
+    """
+
+    def __init__(
+        self, message: str, *, close_code: int | None = None, reason: str = ""
+    ) -> None:
+        super().__init__(message)
+        self.close_code = close_code
+        self.reason = reason
+
+
+class WebSocketAuthenticationError(PrismalWebSocketError):
+    """Close ``1008`` — the handshake credential was rejected (strict mode)."""
+
+
+class TurnInProgressError(PrismalWebSocketError):
+    """Close ``4409`` — a ``message`` arrived while a turn was still running."""
+
+
+class WebSocketProtocolError(PrismalWebSocketError):
+    """Close ``4400``, or a server frame the SDK cannot decode."""
+
+
+class MessageTooLargeError(PrismalWebSocketError):
+    """Close ``1009`` — a frame exceeded the size limit."""
+
+
+class WebSocketServerError(PrismalWebSocketError):
+    """Close ``1011`` — the host failed internally."""
+
+
+class WebSocketUnavailableError(PrismalSDKError, ImportError):
+    """``client.ws()`` without the optional ``websockets`` dependency."""
+
+
 # ── A2A JSON-RPC errors — a distinct surface, never a PrismalAPIError ──────
 
 

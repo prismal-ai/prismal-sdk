@@ -28,6 +28,7 @@ from prismal_sdk._transport import (
     raise_for_response,
     wrap_transport_exception,
 )
+from prismal_sdk._ws import WsSession, require_websockets, ws_url
 from prismal_sdk.admin import (
     AuditPage,
     DecisionShadowReport,
@@ -162,6 +163,7 @@ class PrismalClient:
         self._token = token
         self._org_id = org_id
         self._max_retries = max_retries
+        self._timeout_s = timeout_s
         self._client = httpx.Client(
             base_url=self._base_url, timeout=timeout_s, transport=transport
         )
@@ -463,6 +465,28 @@ class PrismalClient:
         response = self._request("GET", "/v1/admin/tenants")
         raise_for_admin_response(response)
         return TenantsEnvelope.model_validate(decode_json(response)).tenants
+
+    def ws(self, thread_id: str, *, org_id: str | None = None) -> WsSession:
+        """A WebSocket session on ``/ws/threads/{thread_id}`` (SPEC-CS2-WSK-001).
+
+        Needs the optional extra (``pip install 'prismal-sdk[ws]'``);
+        without it this raises
+        :class:`~prismal_sdk.exceptions.WebSocketUnavailableError`. The
+        handshake carries the same ``Authorization`` / ``X-Org-Id`` headers
+        as HTTP calls, and ``timeout_s`` bounds the connect and each wait for
+        a frame. No I/O happens here; the session connects on entry or on
+        its first turn::
+
+            with client.ws(thread_id) as session:
+                for event in session.send_message("hi"):
+                    ...
+
+        Turns are never retried (SPEC-CS2-WSK-004).
+        """
+        require_websockets()
+        return WsSession(
+            ws_url(self._base_url, thread_id), self._headers(org_id), self._timeout_s
+        )
 
     def agent_card(self, *, org_id: str | None = None) -> AgentCard:
         """``GET /.well-known/agent-card.json`` (SPEC-CSB-A2A-001)."""

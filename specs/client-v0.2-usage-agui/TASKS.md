@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | `READY` |
-| **Version** | 1.4 |
+| **Version** | 1.5 |
 | **Date** | 2026-10-12 |
 | **Author** | Ernesto Crespo |
 | **Companion** | [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) · [`SPEC.md`](./SPEC.md) |
@@ -52,9 +52,9 @@ published for the contract job. Every **[verify]** item (AG-UI 1.0 names, A2A v1
 
 | ID | Task | Est. | Dep | SPEC | Status |
 |---|---|---|---|---|---|
-| CS2-03-01 | `_ws.py`: `WsSession` / `AsyncWsSession`, deferred import, `WebSocketUnavailableError` | 0.8 d | 00-03 | WSK-001 | `TODO` |
-| CS2-03-02 | Frame codec, cancel, close-code → exception mapping, no auto-retry | 0.5 d | 03-01, 02-01 | WSK-002/003/004 | `TODO` |
-| CS2-03-03 | Tests against an in-process fake WS server | 0.4 d | 03-02 | WSK-* | `TODO` |
+| CS2-03-01 | `_ws.py`: `WsSession` / `AsyncWsSession`, deferred import, `WebSocketUnavailableError` | 0.8 d | 00-03 | WSK-001 | `DONE` |
+| CS2-03-02 | Frame codec, cancel, close-code → exception mapping, no auto-retry | 0.5 d | 03-01, 02-01 | WSK-002/003/004/005 | `DONE` |
+| CS2-03-03 | Tests against an in-process fake WS server | 0.4 d | 03-02 | WSK-* | `DONE` |
 
 ## Phase 4 — A2A v1.0
 
@@ -119,3 +119,4 @@ CS2-0 0.9 d · CS2-1 2.5 d · CS2-2 1.8 d · CS2-3 1.7 d · CS2-4 1.4 d · CS2-5
 | 1.2 | 2026-10-12 | Ernesto Crespo | 01-01..05 `DONE` (usage, budget, v0.2 error map); coverage ratchet 93 → 95 |
 | 1.3 | 2026-10-12 | Ernesto Crespo | 02-01..04 `DONE` (AG-UI); run out of order, before 01-06/07, by the author's approval |
 | 1.4 | 2026-10-12 | Ernesto Crespo | 01-06/07 `DONE` (admin reads); phase 1 of TASKS complete |
+| 1.5 | 2026-10-12 | Ernesto Crespo | 03-01..03 `DONE` (WebSocket); suite verified on websockets 13.0/py3.10 and 17.2/py3.13 |

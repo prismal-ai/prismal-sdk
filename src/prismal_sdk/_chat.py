@@ -11,7 +11,7 @@ Internal module (leading underscore) — not part of the public API.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, NamedTuple
 
 import httpx
@@ -57,11 +57,19 @@ def translate_chat_frame(event: str, data: str) -> ChatEvent | None:
     skipped rather than raised, so a forward-compatible server addition never
     breaks an installed SDK version.
     """
-    model = _EVENT_MODELS.get(event)
-    if model is None and event != "error":
+    if event not in _EVENT_MODELS and event != "error":
         # Includes data-only frames: never part of the native protocol.
         return None
-    payload = json.loads(data) if data else {}
+    return translate_chat_event(event, json.loads(data) if data else {})
+
+
+def translate_chat_event(event: str, payload: Any) -> ChatEvent | None:
+    """Translate an already-decoded native event (SSE frame or WS ``data``).
+
+    Same rules as :func:`translate_chat_frame`: ``error`` raises the mapped
+    exception, unknown names give ``None``.
+    """
+    model = _EVENT_MODELS.get(event)
     if model is not None:
         return model.model_validate(payload)
     if event == "error":
@@ -89,7 +97,10 @@ class AgUiTranslator:
         if event != DEFAULT_EVENT or not data:
             # Named frames are not AG-UI; ignore them like unknown native ones.
             return None
-        payload = json.loads(data)
+        return self.translate(json.loads(data))
+
+    def translate(self, payload: Mapping[str, Any]) -> AgUiEvent:
+        """Translate an already-decoded AG-UI event (SSE frame or WS ``data``)."""
         parsed = parse_agui_event(payload)
         if isinstance(parsed, PrismalUsageEvent):
             self._last_usage = parsed.usage

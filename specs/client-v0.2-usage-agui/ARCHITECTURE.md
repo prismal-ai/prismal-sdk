@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | `READY` |
-| **Version** | 1.2 |
+| **Version** | 1.3 |
 | **Date** | 2026-10-12 |
 | **Author** | Ernesto Crespo |
 | **Companion** | [`PLAN.md`](./PLAN.md) · [`SPEC.md`](./SPEC.md) · [`TASKS.md`](./TASKS.md) |
@@ -84,6 +84,7 @@ with client.ws(tid) as s:            # handshake: Authorization, X-Org-Id
                                      # ← {"event":"agui","data":…}  → AgUiEvent
                                      # ← heartbeat/pong swallowed
     s.cancel()                       # → {"type":"cancel"} ; ← error{code:"cancelled"} → TurnCancelledError
+    # break mid-turn → cancel sent; next send_message drains the old turn first (WSK-005)
 close 4409/4400/1009/1008/1011 ─► mapped PrismalWebSocketError subclass
 ```
 
@@ -122,13 +123,15 @@ PrismalSDKError
 │   ├── ProtocolNotEnabledError · InvalidRequestError · ForbiddenError
 │   ├── ServerConfigurationError · TurnCancelledError · AdminDisabledError
 ├── PrismalTransportError
-│   └── PrismalWebSocketError (close_code)
-│       ├── TurnInProgressError · WebSocketProtocolError · MessageTooLargeError
+│   └── PrismalWebSocketError (close_code, reason)
+│       ├── WebSocketAuthenticationError (1008) · TurnInProgressError (4409)
+│       ├── WebSocketProtocolError (4400) · MessageTooLargeError (1009)
+│       └── WebSocketServerError (1011)
 ├── A2AJsonRpcError            (v0.1)
 ├── A2AVersionError            (new)
 └── WebSocketUnavailableError  (new; also subclasses ImportError)
 ```
-`1008` maps to the existing `AuthenticationError`; `1011` to `PrismalAPIError` with `code="internal_error"`.
+Every close code maps to a `PrismalWebSocketError` subclass (SPEC 1.4, WSK-003); there is no generic `AuthenticationError` in the SDK.
 
 ## 7. Testing
 
@@ -152,3 +155,4 @@ GHCR `prismal-server:0.2.0` image with `PRISMAL_SERVER_HOST_FAKE_LLM_MODE=true` 
 | 1.0 | 2026-10-04 | Ernesto Crespo | Initial architecture for client v0.2 |
 | 1.1 | 2026-10-12 | Ernesto Crespo | CS2-00: `websockets>=13.0` verified; AG-UI/A2A flows amended per ADR-PRT-001; DD-CS2-009 |
 | 1.2 | 2026-10-12 | Ernesto Crespo | `admin.py` row: no mixins — methods on the clients, shared error helper |
+| 1.3 | 2026-10-12 | Ernesto Crespo | WS error hierarchy as built; abandoned-turn flow |
