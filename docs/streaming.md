@@ -4,6 +4,10 @@
 (`AsyncIterator[ChatEvent]`) stream a chat turn exactly as
 `prismal-server` frames it — no buffering, no re-batching.
 
+This page covers the native event format. For AG-UI 1.0 events
+(`protocol="ag-ui"`) see [`agui.md`](./agui.md); for multi-turn sessions
+with cancellation over WebSocket see [`websocket.md`](./websocket.md).
+
 ## Event types
 
 | Event | When | Fields |
@@ -11,7 +15,7 @@
 | `TokenEvent` | Incremental assistant text | `delta: str` |
 | `ToolCallEvent` | A tool invocation surfaced by the graph | `name: str`, `args: Any` |
 | `StateEvent` | An optional node/state transition | `data: dict` |
-| `DoneEvent` | Terminal — ends iteration normally | `thread_id: str`, `finish_reason: str` |
+| `DoneEvent` | Terminal — ends iteration normally | `thread_id: str`, `finish_reason: str`, `usage: Usage \| None` (v0.2, see [`usage.md`](./usage.md)) |
 
 A terminal **`error`** frame is not a value you receive — it is **raised**
 from inside the iterator as the mapped exception (see

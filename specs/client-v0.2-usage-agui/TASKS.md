@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | `READY` |
-| **Version** | 1.6 |
+| **Version** | 1.7 |
 | **Date** | 2026-10-12 |
 | **Author** | Ernesto Crespo |
 | **Companion** | [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) · [`SPEC.md`](./SPEC.md) |
@@ -69,11 +69,11 @@ published for the contract job. Every **[verify]** item (AG-UI 1.0 names, A2A v1
 
 | ID | Task | Est. | Dep | SPEC | Status |
 |---|---|---|---|---|---|
-| CS2-05-01 | Contract suite vs fake-mode host (all CTR-002 cases) — **closes CSB-05-01** | 0.6 d | 00-04, phases 1–4 | CTR-001/002 | `TODO` |
-| CS2-05-02 | Parity test extended to every new method/kwarg | 0.2 d | phases 1–4 | NFR-002 | `TODO` |
-| CS2-05-03 | Import guard unchanged; assert `websockets` absent from base deps | 0.1 d | 03-01 | NFR-001/003 | `TODO` |
-| CS2-05-04 | Docs `usage.md`, `agui.md`, `websocket.md`, `a2a-v1.md`; examples | 0.5 d | phases 1–4 | — | `TODO` |
-| CS2-05-05 | CHANGELOG; tag `v0.2.0` only after 05-01 green in CI (supersedes CSB-05-06) | 0.2 d | 05-01 | — | `TODO` |
+| CS2-05-01 | Contract suite vs fake-mode host (all CTR-002 cases) — **closes CSB-05-01** | 0.6 d | 00-04, phases 1–4 | CTR-001/002 | `BLOCKED` — suite written (`tests/contract/test_v02_contract.py`, 13 cases; HTTP cases dry-run green against a scratch stdlib fake of SPEC-RH2-FAK-002); green run waits on the host 0.2 fake-mode image (00-04) |
+| CS2-05-02 | Parity test extended to every new method/kwarg | 0.2 d | phases 1–4 | NFR-002 | `DONE` — v0.2 names listed explicitly; params compared by name, kind and default; WS sessions included |
+| CS2-05-03 | Import guard unchanged; assert `websockets` absent from base deps | 0.1 d | 03-01 | NFR-001/003 | `DONE` — `tests/unit/test_packaging.py` (metadata extras, lazy import, `py.typed`) |
+| CS2-05-04 | Docs `usage.md`, `agui.md`, `websocket.md`, `a2a-v1.md`; examples | 0.5 d | phases 1–4 | — | `DONE` — plus `admin.md`; `errors.md`/`streaming.md`/README updated; 5 examples (HTTP ones run against the scratch fake) |
+| CS2-05-05 | CHANGELOG; tag `v0.2.0` only after 05-01 green in CI (supersedes CSB-05-06) | 0.2 d | 05-01 | — | `BLOCKED` — `CHANGELOG.md` done (`[Unreleased] — 0.2.0`); version stays `0.2.0.dev0`, tag waits on 05-01 |
 
 ## Test inventory & traceability
 
@@ -121,3 +121,4 @@ CS2-0 0.9 d · CS2-1 2.5 d · CS2-2 1.8 d · CS2-3 1.7 d · CS2-4 1.4 d · CS2-5
 | 1.4 | 2026-10-12 | Ernesto Crespo | 01-06/07 `DONE` (admin reads); phase 1 of TASKS complete |
 | 1.5 | 2026-10-12 | Ernesto Crespo | 03-01..03 `DONE` (WebSocket); suite verified on websockets 13.0/py3.10 and 17.2/py3.13 |
 | 1.6 | 2026-10-12 | Ernesto Crespo | 04-01..04 `DONE` (A2A v1, engine fixtures vendored in `tests/fixtures/a2a_v1/`); phases 1–4 complete |
+| 1.7 | 2026-10-12 | Ernesto Crespo | 05-02..04 `DONE`; 05-01 written, run `BLOCKED`; 05-05 CHANGELOG done, tag `BLOCKED` — everything left waits on the host 0.2 image |

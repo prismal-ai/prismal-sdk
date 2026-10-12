@@ -5,12 +5,15 @@ Guidance for Claude Code (claude.ai/code) working in this repository.
 ## What this repo is
 
 `prismal-sdk` is the **Python client** for [`prismal-server`](https://github.com/prismal-ai/prismal-server):
-a thin, typed wrapper over its REST + SSE chat contract and its standard A2A
-v0.3.x JSON-RPC surface. It ships two mirrored clients, `PrismalClient`
-(sync) and `AsyncPrismalClient` (async), both over `httpx`.
+a thin, typed wrapper over its REST + SSE chat contract (native and AG-UI),
+its WebSocket sessions, its usage/budget/admin reads, and its standard A2A
+v0.3 / v1.0 JSON-RPC surface. It ships two mirrored clients, `PrismalClient`
+(sync) and `AsyncPrismalClient` (async), both over `httpx` (plus the
+optional `websockets` extra for `client.ws()`).
 
-The full design lives in
-[`specs/client-sdk-bootstrap/`](./specs/client-sdk-bootstrap/) (`PLAN.md` ·
+The design lives in two SDDs — v0.1 in
+[`specs/client-sdk-bootstrap/`](./specs/client-sdk-bootstrap/) and v0.2 in
+[`specs/client-v0.2-usage-agui/`](./specs/client-v0.2-usage-agui/) (`PLAN.md` ·
 `ARCHITECTURE.md` · `SPEC.md` · `TASKS.md`). Read those before implementing.
 
 ## The one hard rule — a client, not a co-host
@@ -28,6 +31,7 @@ against their source:
 | Chat (`POST /threads`, `POST /threads/{id}/messages` SSE) | `prismal-server/specs/reference-host-bootstrap/SPEC.md` §3 |
 | A2A (`GET /.well-known/agent-card.json`, `POST /a2a`) | same, §4, standard A2A v0.3.x |
 | Auth (`Authorization: Bearer`, `X-Org-Id`) | same, §5/§6, §9 (SDK contract) |
+| v0.2: usage/budget, AG-UI, WebSocket, A2A v1.0, admin reads, fake-LLM mode | `prismal-server/specs/host-v0.2-usage-gateways-agui/SPEC.md` (`SPEC-RH2-*`); protocol pins in `prismal/docs/adr/ADR-PRT-001-protocol-pins.md` |
 
 Adding a dependency on `prismal-ai` or `prismal-server`, embedding a local
 copy of engine/host logic, or growing the SDK beyond typed transport
@@ -41,7 +45,7 @@ transient network errors) is a bug.
       green.
 - [ ] `PrismalClient` and `AsyncPrismalClient` expose the same public method
       names and parameter shapes (parity test).
-- [ ] New capability traces to a `SPEC-CSB-*` requirement — if the wire
+- [ ] New capability traces to a `SPEC-CSB-*` / `SPEC-CS2-*` requirement — if the wire
       contract needs to change, that change is negotiated in
       `prismal-server` first, not invented here.
 - [ ] No secret (`token`) ever appears in a log line, exception message, or
@@ -75,5 +79,8 @@ uv run mypy src
   what the JSON-RPC `error` member has; do not guess at engine-side causes.
 - Want to cache thread state client-side? **No** — that's application logic
   for the caller (dashboard/TUI/chatbot), not this SDK.
-- Want to add a WebSocket client? **Not yet** — `prismal-server` hasn't
-  shipped a WS endpoint; see `CSB-FUTURE-01` in `TASKS.md`.
+- Need the turn's cost? **Read `DoneEvent.usage`** — never price tokens
+  client-side; every number is the host's (`SPEC-CS2-USG-003`).
+- Adding a dependency? `websockets` is the model: an **optional extra**
+  (`[ws]`), imported lazily, guarded by `tests/unit/test_packaging.py`. The
+  base install stays `httpx` + `pydantic`.
