@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | `READY` |
-| **Version** | 1.2 |
+| **Version** | 1.3 |
 | **Date** | 2026-10-12 |
 | **Author** | Ernesto Crespo |
 | **Companion** | [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) · [`SPEC.md`](./SPEC.md) |
@@ -43,10 +43,10 @@ published for the contract job. Every **[verify]** item (AG-UI 1.0 names, A2A v1
 
 | ID | Task | Est. | Dep | SPEC | Status |
 |---|---|---|---|---|---|
-| CS2-02-01 | `agui.py`: models, `AGUI_EVENT_TYPES`, `parse_agui_event`, `PrismalUsageEvent` | 0.6 d | 00-02 | AGU-002/004 | `TODO` |
-| CS2-02-02 | `_sse.py`: data-only frame routing (sync + async) | 0.3 d | 02-01 | AGU-002 | `TODO` |
-| CS2-02-03 | `send_message(protocol=)` overloads on both clients; `RunFinished` ends; `RunError` raises; `406` | 0.6 d | 02-02, 01-05 | AGU-001/003/005/006 | `TODO` |
-| CS2-02-04 | Golden-stream test (host assets) incl. usage event and unknown types | 0.3 d | 02-03 | AGU-* | `TODO` |
+| CS2-02-01 | `agui.py`: models, `AGUI_EVENT_TYPES`, `parse_agui_event`, `PrismalUsageEvent` | 0.6 d | 00-02 | AGU-002/004 | `DONE` |
+| CS2-02-02 | `_sse.py`: data-only frame routing (sync + async) | 0.3 d | 02-01 | AGU-002 | `DONE` |
+| CS2-02-03 | `send_message(protocol=)` overloads on both clients; `RunFinished` ends; `RunError` raises; `406`; negotiation header | 0.6 d | 02-02, 01-05 | AGU-001/003/005/006/007 | `DONE` |
+| CS2-02-04 | Golden-stream test (12 engine/host streams vendored in `tests/fixtures/agui/`) incl. usage event and unknown types | 0.3 d | 02-03 | AGU-* | `DONE` |
 
 ## Phase 3 — WebSocket
 
@@ -117,3 +117,4 @@ CS2-0 0.9 d · CS2-1 2.5 d · CS2-2 1.8 d · CS2-3 1.7 d · CS2-4 1.4 d · CS2-5
 | 1.0 | 2026-10-04 | Ernesto Crespo | Initial task breakdown for client v0.2 |
 | 1.1 | 2026-10-12 | Ernesto Crespo | Phase 0: 00-01..03 `DONE`, 00-04 `BLOCKED` on host image (see `VERIFY-CS2-00.md`); 01-05/04-0x amended per SPEC 1.1 |
 | 1.2 | 2026-10-12 | Ernesto Crespo | 01-01..05 `DONE` (usage, budget, v0.2 error map); coverage ratchet 93 → 95 |
+| 1.3 | 2026-10-12 | Ernesto Crespo | 02-01..04 `DONE` (AG-UI); run out of order, before 01-06/07, by the author's approval |

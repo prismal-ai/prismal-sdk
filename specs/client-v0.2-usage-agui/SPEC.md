@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | `READY` |
-| **Version** | 1.1 |
+| **Version** | 1.2 |
 | **Date** | 2026-10-12 |
 | **Author** | Ernesto Crespo |
 | **Companion** | [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) · [`TASKS.md`](./TASKS.md) · [`VERIFY-CS2-00.md`](./VERIFY-CS2-00.md) |
@@ -160,10 +160,11 @@ def send_message(self, thread_id: str, content: str, *, role: str = "user",
 |---|---|---|
 | SPEC-CS2-AGU-001 | With `protocol="ag-ui"`, the request MUST carry `Accept: text/event-stream; profile=ag-ui` (`SPEC-RH2-AGU-001`); the body is unchanged. | `MUST` |
 | SPEC-CS2-AGU-002 | The parser MUST accept data-only frames (no `event:` line), decode JSON, dispatch on `type` via `parse_agui_event`, and keep ignoring heartbeat comments. | `MUST` |
-| SPEC-CS2-AGU-003 | `RunFinished` MUST be yielded last and end iteration; a `RunError` MUST raise the `PrismalAPIError` subclass mapped from its `code` (same table as native `error`). | `MUST` |
+| SPEC-CS2-AGU-003 | `RunFinished` MUST be yielded last and end iteration; a `RunError` MUST raise the `PrismalAPIError` subclass mapped from its `code` (same table as native `error`; missing `code` ⇒ `internal_error`). The 12-key `usage` handed to that exception (ERR-002) is the run's last `prismal.usage` value, since `RUN_ERROR.usage` is native `TokenUsage[]` and is not converted. | `MUST` |
 | SPEC-CS2-AGU-004 | `CUSTOM` events named `prismal.usage` MUST parse as `PrismalUsageEvent` whose `.usage` is a `Usage` (12 keys). | `MUST` |
 | SPEC-CS2-AGU-005 | `406 protocol_not_enabled` MUST raise `ProtocolNotEnabledError` before any event is yielded. | `MUST` |
-| SPEC-CS2-AGU-006 | Default `protocol="prismal"` MUST behave exactly as v0.1 apart from `DoneEvent.usage`. | `MUST` |
+| SPEC-CS2-AGU-006 | Default `protocol="prismal"` MUST behave exactly as v0.1 apart from `DoneEvent.usage`; data-only frames reaching the native path are ignored without decoding. | `MUST` |
+| SPEC-CS2-AGU-007 | WHEN `protocol="ag-ui"` gets a 2xx response without `X-Prismal-Stream-Protocol: ag-ui` (`SPEC-RH2-AGU-002`), THE SYSTEM SHALL raise `ProtocolNotEnabledError` before yielding — a host that ignores the profile would otherwise stream native frames that the AG-UI path drops, i.e. a silent empty turn. | `MUST` |
 
 ## 4. WebSocket client (extra `[ws]`)
 
@@ -329,3 +330,4 @@ SYSTEM SHALL pass every CTR-002 case (closes CSB-05-01).
 |---|---|---|---|
 | 1.0 | 2026-10-04 | Ernesto Crespo | Initial technical spec for client v0.2 |
 | 1.1 | 2026-10-12 | Ernesto Crespo | CS2-00: pins from ADR-PRT-001 — A2A negotiation via `supportedInterfaces` + `A2A-Version` header, PascalCase v1 methods table, `TaskListPage` (4 required keys, `""` last page), `page_size ≤ 100`, A2A-005; AG-UI without `Interrupt`, `subagentRunId`, `SubagentError`, `RunFinished.outcome/usage`; new ERR-001/002 (cited by `SPEC-RH2` §11); `PRISMAL_BASE_URL` in CTR-001 |
+| 1.2 | 2026-10-12 | Ernesto Crespo | CS2-02: AGU-007 (negotiation header check), AGU-003 usage source on `RUN_ERROR`, AGU-006 data-only frames on the native path |

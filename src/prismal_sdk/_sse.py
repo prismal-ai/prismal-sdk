@@ -2,7 +2,9 @@
 
 Mirrors ``prismal-server/src/prismal_server/streaming.py`` exactly: named
 events are framed as ``event: NAME\\ndata: JSON\\n\\n``; heartbeats are a bare
-comment line ``: heartbeat\\n\\n``. This module only frames lines into
+comment line ``: heartbeat\\n\\n``. AG-UI streams send data-only frames
+(``data: JSON\\n\\n``, no ``event:`` line — SPEC-RH2-AGU-002); those get the
+SSE default event name ``"message"``. This module only frames lines into
 ``(event, data)`` pairs — it does not know about ``token``/``tool_call``/
 ``done``/``error`` semantics; that translation lives in ``client.py`` /
 ``async_client.py`` next to the typed models it produces.
@@ -16,6 +18,9 @@ from collections.abc import AsyncIterable, AsyncIterator, Iterable, Iterator
 
 #: A parsed SSE frame: (event name, raw ``data:`` payload joined by "\n").
 SSEFrame = tuple[str, str]
+
+#: Event name of a frame without an ``event:`` line (WHATWG SSE default).
+DEFAULT_EVENT = "message"
 
 
 class _FrameAccumulator:
@@ -46,9 +51,12 @@ class _FrameAccumulator:
         event, data_lines = self._event, self._data_lines
         self._event, self._data_lines = None, []
         if event is None:
-            # A blank line with no preceding "event:" was just a heartbeat's
-            # terminator (or stray whitespace) — nothing to dispatch.
-            return None
+            if not data_lines:
+                # A blank line with nothing before it was just a heartbeat's
+                # terminator (or stray whitespace) — nothing to dispatch.
+                return None
+            # Data-only frame (AG-UI): the SSE default event name.
+            event = DEFAULT_EVENT
         return event, "\n".join(data_lines)
 
 
@@ -56,7 +64,7 @@ def iter_sse_events(lines: Iterable[str]) -> Iterator[SSEFrame]:
     """Parse a sync line iterator into ``(event, data)`` frames.
 
     Heartbeat comments and blank noise are consumed silently
-    (SPEC-CSB-CHT-005); only named events are yielded.
+    (SPEC-CSB-CHT-005); named and data-only frames are yielded.
     """
     acc = _FrameAccumulator()
     for line in lines:

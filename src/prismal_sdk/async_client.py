@@ -13,12 +13,12 @@ import asyncio
 from collections.abc import AsyncIterator
 from datetime import datetime
 from types import TracebackType
-from typing import Any
+from typing import Any, Literal, overload
 
 import httpx
 
 from prismal_sdk import a2a as _a2a
-from prismal_sdk._chat import translate_chat_frame
+from prismal_sdk._chat import check_negotiated, stream_profile
 from prismal_sdk._sse import aiter_sse_events
 from prismal_sdk._transport import (
     backoff_delay_s,
@@ -30,13 +30,13 @@ from prismal_sdk._transport import (
     raise_for_response,
     wrap_transport_exception,
 )
+from prismal_sdk.agui import AgUiEvent, StreamProtocol
 from prismal_sdk.config import DEFAULT_BASE_URL, ClientConfig
 from prismal_sdk.exceptions import A2ANotEnabledError, PrismalAPIError, error_for_code
 from prismal_sdk.models import (
     AgentCard,
     BudgetReport,
     ChatEvent,
-    DoneEvent,
     HealthStatus,
     MessageIn,
     ReadyStatus,
@@ -248,6 +248,30 @@ class AsyncPrismalClient:
         raise_for_response(response)
         return ThreadCreated.model_validate(decode_json(response))
 
+    @overload
+    def send_message(
+        self,
+        thread_id: str,
+        content: str,
+        *,
+        role: str = ...,
+        metadata: dict[str, Any] | None = ...,
+        org_id: str | None = ...,
+        protocol: Literal["prismal"] = ...,
+    ) -> AsyncIterator[ChatEvent]: ...
+
+    @overload
+    def send_message(
+        self,
+        thread_id: str,
+        content: str,
+        *,
+        role: str = ...,
+        metadata: dict[str, Any] | None = ...,
+        org_id: str | None = ...,
+        protocol: Literal["ag-ui"],
+    ) -> AsyncIterator[AgUiEvent]: ...
+
     async def send_message(
         self,
         thread_id: str,
@@ -256,18 +280,27 @@ class AsyncPrismalClient:
         role: str = "user",
         metadata: dict[str, Any] | None = None,
         org_id: str | None = None,
-    ) -> AsyncIterator[ChatEvent]:
+        protocol: StreamProtocol = "prismal",
+    ) -> AsyncIterator[ChatEvent | AgUiEvent]:
         """Stream a chat turn (``POST /threads/{id}/messages``, SPEC-CSB-CHT-001).
 
         Async-generator counterpart of
         :meth:`prismal_sdk.client.PrismalClient.send_message` — same event
         ordering, same terminal-``error``-raises-in-place behavior
         (SPEC-CSB-CHT-004).
+
+        ``protocol="ag-ui"`` asks for AG-UI 1.0 events instead
+        (SPEC-CS2-AGU-001): it yields :class:`~prismal_sdk.agui.AgUiEvent`
+        models, ending with ``RunFinished``; a ``RUN_ERROR`` raises the mapped
+        exception, and a host that cannot stream AG-UI raises
+        :class:`~prismal_sdk.exceptions.ProtocolNotEnabledError` before any
+        event. An unknown ``protocol`` raises ``ValueError`` before any I/O.
         """
+        profile = stream_profile(protocol)
         body = MessageIn(
             content=content, role=role, metadata=metadata or {}
         ).model_dump()
-        headers = self._headers(org_id)
+        headers = {**self._headers(org_id), **profile.request_headers}
         try:
             async with self._client.stream(
                 "POST", f"/threads/{thread_id}/messages", json=body, headers=headers
@@ -275,12 +308,13 @@ class AsyncPrismalClient:
                 if not response.is_success:
                     await response.aread()
                     raise_for_response(response)
+                check_negotiated(profile, response)
                 async for event_name, data in aiter_sse_events(response.aiter_lines()):
-                    parsed = translate_chat_frame(event_name, data)
+                    parsed = profile.translate(event_name, data)
                     if parsed is None:
                         continue
                     yield parsed
-                    if isinstance(parsed, DoneEvent):
+                    if isinstance(parsed, profile.terminal):
                         return
         except httpx.HTTPError as exc:
             # A transport failure mid-stream must surface as an SDK error, not

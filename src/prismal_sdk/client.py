@@ -11,12 +11,12 @@ import time
 from collections.abc import Iterator
 from datetime import datetime
 from types import TracebackType
-from typing import Any
+from typing import Any, Literal, overload
 
 import httpx
 
 from prismal_sdk import a2a as _a2a
-from prismal_sdk._chat import translate_chat_frame
+from prismal_sdk._chat import check_negotiated, stream_profile
 from prismal_sdk._sse import iter_sse_events
 from prismal_sdk._transport import (
     backoff_delay_s,
@@ -28,13 +28,13 @@ from prismal_sdk._transport import (
     raise_for_response,
     wrap_transport_exception,
 )
+from prismal_sdk.agui import AgUiEvent, StreamProtocol
 from prismal_sdk.config import DEFAULT_BASE_URL, ClientConfig
 from prismal_sdk.exceptions import A2ANotEnabledError, PrismalAPIError, error_for_code
 from prismal_sdk.models import (
     AgentCard,
     BudgetReport,
     ChatEvent,
-    DoneEvent,
     HealthStatus,
     MessageIn,
     ReadyStatus,
@@ -250,6 +250,30 @@ class PrismalClient:
         raise_for_response(response)
         return ThreadCreated.model_validate(decode_json(response))
 
+    @overload
+    def send_message(
+        self,
+        thread_id: str,
+        content: str,
+        *,
+        role: str = ...,
+        metadata: dict[str, Any] | None = ...,
+        org_id: str | None = ...,
+        protocol: Literal["prismal"] = ...,
+    ) -> Iterator[ChatEvent]: ...
+
+    @overload
+    def send_message(
+        self,
+        thread_id: str,
+        content: str,
+        *,
+        role: str = ...,
+        metadata: dict[str, Any] | None = ...,
+        org_id: str | None = ...,
+        protocol: Literal["ag-ui"],
+    ) -> Iterator[AgUiEvent]: ...
+
     def send_message(
         self,
         thread_id: str,
@@ -258,7 +282,8 @@ class PrismalClient:
         role: str = "user",
         metadata: dict[str, Any] | None = None,
         org_id: str | None = None,
-    ) -> Iterator[ChatEvent]:
+        protocol: StreamProtocol = "prismal",
+    ) -> Iterator[ChatEvent | AgUiEvent]:
         """Stream a chat turn (``POST /threads/{id}/messages``, SPEC-CSB-CHT-001).
 
         Yields typed events in server order; raises the mapped
@@ -268,11 +293,19 @@ class PrismalClient:
         a deterministic prompt disconnect (SPEC-CSB-CHT-006) — CPython closes
         it automatically once unreferenced, but that timing is not
         guaranteed on every Python implementation.
+
+        ``protocol="ag-ui"`` asks for AG-UI 1.0 events instead
+        (SPEC-CS2-AGU-001): it yields :class:`~prismal_sdk.agui.AgUiEvent`
+        models, ending with ``RunFinished``; a ``RUN_ERROR`` raises the mapped
+        exception, and a host that cannot stream AG-UI raises
+        :class:`~prismal_sdk.exceptions.ProtocolNotEnabledError` before any
+        event. An unknown ``protocol`` raises ``ValueError`` before any I/O.
         """
+        profile = stream_profile(protocol)
         body = MessageIn(
             content=content, role=role, metadata=metadata or {}
         ).model_dump()
-        headers = self._headers(org_id)
+        headers = {**self._headers(org_id), **profile.request_headers}
         try:
             with self._client.stream(
                 "POST", f"/threads/{thread_id}/messages", json=body, headers=headers
@@ -280,12 +313,13 @@ class PrismalClient:
                 if not response.is_success:
                     response.read()
                     raise_for_response(response)
+                check_negotiated(profile, response)
                 for event_name, data in iter_sse_events(response.iter_lines()):
-                    parsed = translate_chat_frame(event_name, data)
+                    parsed = profile.translate(event_name, data)
                     if parsed is None:
                         continue
                     yield parsed
-                    if isinstance(parsed, DoneEvent):
+                    if isinstance(parsed, profile.terminal):
                         return
         except httpx.HTTPError as exc:
             # A transport failure mid-stream must surface as an SDK error, not

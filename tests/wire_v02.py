@@ -106,3 +106,58 @@ BUDGET_REPORT: dict[str, Any] = {
     ],
     "as_of": "2026-10-04T12:00:00Z",
 }
+
+
+#: AG-UI golden streams (engine `tests/fixtures/protocols/agui/`, vendored by
+#: the host too). Each has the camelCase wire events under ``expected``.
+AGUI_GOLDEN: dict[str, dict[str, Any]] = {
+    path.stem: json.loads(path.read_text())
+    for path in sorted((FIXTURES / "agui").glob("*.json"))
+}
+
+#: The 31 AG-UI 1.0 event types pinned by engine ADR-PRT-001 §2.3.
+AGUI_1_0_TYPES = frozenset(
+    {
+        "TEXT_MESSAGE_START",
+        "TEXT_MESSAGE_CONTENT",
+        "TEXT_MESSAGE_END",
+        "TEXT_MESSAGE_CHUNK",
+        "TOOL_CALL_START",
+        "TOOL_CALL_ARGS",
+        "TOOL_CALL_END",
+        "TOOL_CALL_CHUNK",
+        "TOOL_CALL_RESULT",
+        "STATE_SNAPSHOT",
+        "STATE_DELTA",
+        "MESSAGES_SNAPSHOT",
+        "ACTIVITY_SNAPSHOT",
+        "ACTIVITY_DELTA",
+        "RAW",
+        "CUSTOM",
+        "RUN_STARTED",
+        "RUN_FINISHED",
+        "RUN_ERROR",
+        "STEP_STARTED",
+        "STEP_FINISHED",
+        "REASONING_START",
+        "REASONING_MESSAGE_START",
+        "REASONING_MESSAGE_CONTENT",
+        "REASONING_MESSAGE_END",
+        "REASONING_MESSAGE_CHUNK",
+        "REASONING_END",
+        "REASONING_ENCRYPTED_VALUE",
+        "SUBAGENT_STARTED",
+        "SUBAGENT_FINISHED",
+        "SUBAGENT_ERROR",
+    }
+)
+
+
+def agui_body(events: list[dict[str, Any]], *, heartbeats: bool = True) -> bytes:
+    """Frame AG-UI events as the host does: ``data: <json>\\n\\n``, no ``event:``."""
+    chunks = [": heartbeat\n\n"] if heartbeats else []
+    for event in events:
+        chunks.append(f"data: {json.dumps(event)}\n\n")
+        if heartbeats:
+            chunks.append(": heartbeat\n\n")
+    return "".join(chunks).encode()

@@ -7,12 +7,20 @@ Two mirrored clients, both built over ``httpx``:
 
 The SDK speaks only the wire contract ``prismal-server`` fixed
 (``SPEC-RHB-SDK-*`` in that repo): thread/chat REST+SSE and the standard A2A
-v0.3.x JSON-RPC surface. It never imports ``prismal`` or ``prismal_server``
-— see ``CLAUDE.md`` and ``specs/client-sdk-bootstrap/`` for the full design.
+v0.3.x JSON-RPC surface, plus (v0.2) usage/budget reads and AG-UI streaming.
+It never imports ``prismal`` or ``prismal_server`` — see ``CLAUDE.md``,
+``specs/client-sdk-bootstrap/`` and ``specs/client-v0.2-usage-agui/``.
 """
 
 from __future__ import annotations
 
+from prismal_sdk.agui import (
+    AgUiEvent,
+    PrismalUsageEvent,
+    RunFinished,
+    StreamProtocol,
+    parse_agui_event,
+)
 from prismal_sdk.async_client import AsyncPrismalClient
 from prismal_sdk.client import PrismalClient
 from prismal_sdk.config import ClientConfig
@@ -83,6 +91,12 @@ __all__ = [
     "BudgetAmounts",
     "BudgetReport",
     "QuotaWindow",
+    # AG-UI (full set in prismal_sdk.agui)
+    "AgUiEvent",
+    "PrismalUsageEvent",
+    "RunFinished",
+    "StreamProtocol",
+    "parse_agui_event",
     # Exceptions
     "PrismalSDKError",
     "PrismalAPIError",
