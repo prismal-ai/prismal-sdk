@@ -12,8 +12,9 @@ fake script, so a skip there would be a false green. Optional host surfaces
 skip when the host says they are off (A2A ``404``, admin ``404``); the
 WebSocket turn skips only when the ``[ws]`` extra is not installed.
 
-``PRISMAL_TOKEN`` / ``PRISMAL_ORG_ID`` are passed through when set; the admin
-reads need a token holding the host's admin scope.
+``PRISMAL_TOKEN`` / ``PRISMAL_ORG_ID`` are passed through when set. Without
+the admin scope, the admin reads are checked live for their ``403`` →
+``ForbiddenError`` mapping; their ``200`` bodies need ``PRISMAL_ADMIN_TOKEN``.
 """
 
 from __future__ import annotations
@@ -27,9 +28,11 @@ import httpx
 import pytest
 
 from prismal_sdk import (
+    A2AJsonRpcError,
     A2ANotEnabledError,
     AdminDisabledError,
     AsyncPrismalClient,
+    ForbiddenError,
     PrismalAPIError,
     PrismalClient,
 )
@@ -237,7 +240,7 @@ def test_ws_turn(client: PrismalClient) -> None:
 # ── A2A v1 (SPEC-CS2-A2A-*), when the host enables A2A ──────────────────────
 
 
-def test_agent_card_and_tasks_list(client: PrismalClient) -> None:
+def test_agent_card_v1(client: PrismalClient) -> None:
     try:
         card = client.agent_card(protocol_version="1.0")
     except A2ANotEnabledError:
@@ -248,22 +251,65 @@ def test_agent_card_and_tasks_list(client: PrismalClient) -> None:
         for i in card.supported_interfaces or []
     )
 
+
+def test_a2a_v1_tasks_list(client: PrismalClient) -> None:
     with PrismalClient(BASE_URL, token=TOKEN, org_id=ORG_ID, a2a_protocol="1.0") as v1:
-        page = v1.a2a.tasks_list(page_size=10)
+        try:
+            page = v1.a2a.tasks_list(page_size=10)
+        except A2ANotEnabledError:
+            pytest.skip("A2A is not enabled on this prismal-server instance")
+        except A2AJsonRpcError as exc:
+            # A fake-mode host serves the card but composes no inbound A2A
+            # handler, so `POST /a2a` answers a JSON-RPC "not enabled" error
+            # (prismal-server docs/fake-mode.md). Reaching here already proves
+            # the SDK surfaced it typed, never swallowed (SPEC-CSB-A2A-003).
+            pytest.skip(f"host composes no inbound A2A handler in fake mode: {exc}")
     assert isinstance(page.tasks, list)
     assert isinstance(page.next_page_token, str)
 
 
 # ── admin reads (SPEC-CS2-ADM-*), when the host enables them ────────────────
 
+#: A bearer token holding the host's admin scope (``prismal:admin``). The
+#: host's built-in ``none``/``bearer`` backends never attach scopes, so a stock
+#: fake-mode host can only be read with a token from a scope-granting backend.
+ADMIN_TOKEN = os.environ.get("PRISMAL_ADMIN_TOKEN") or None
 
-def test_admin_reads(client: PrismalClient) -> None:
-    try:
-        tenants = client.tenants()
-    except AdminDisabledError:
-        pytest.skip("admin routes are disabled on this prismal-server instance")
-    assert isinstance(tenants, list)
-    client.decisions_report()
-    client.routing_report()
-    page = client.audit(page=1, page_size=10)
+
+def _admin_reads(client: PrismalClient) -> list[Any]:
+    return [
+        client.tenants,
+        client.decisions_report,
+        client.routing_report,
+        lambda: client.audit(page=1, page_size=10),
+    ]
+
+
+def test_admin_reads_without_scope_raise_forbidden(client: PrismalClient) -> None:
+    if TOKEN is not None and TOKEN == ADMIN_TOKEN:
+        pytest.skip("PRISMAL_TOKEN holds the admin scope")
+    for read in _admin_reads(client):
+        try:
+            read()
+        except AdminDisabledError:
+            pytest.skip("admin routes are disabled on this prismal-server instance")
+        except ForbiddenError as exc:
+            assert exc.status_code == 403
+            assert exc.code == "forbidden"
+        else:
+            pytest.fail(f"{read} succeeded without the admin scope")
+
+
+def test_admin_reads(fake_host: httpx.Response) -> None:
+    if ADMIN_TOKEN is None:
+        pytest.skip("set PRISMAL_ADMIN_TOKEN to a token holding the admin scope")
+    with PrismalClient(BASE_URL, token=ADMIN_TOKEN, org_id=ORG_ID) as client:
+        try:
+            tenants = client.tenants()
+        except AdminDisabledError:
+            pytest.skip("admin routes are disabled on this prismal-server instance")
+        assert isinstance(tenants, list)
+        client.decisions_report()
+        client.routing_report()
+        page = client.audit(page=1, page_size=10)
     assert isinstance(page.entries, list)

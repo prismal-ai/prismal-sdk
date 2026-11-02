@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | `READY` |
-| **Version** | 1.5 |
+| **Version** | 1.6 |
 | **Date** | 2026-10-12 |
 | **Author** | Ernesto Crespo |
 | **Companion** | [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) · [`TASKS.md`](./TASKS.md) · [`VERIFY-CS2-00.md`](./VERIFY-CS2-00.md) |
@@ -307,7 +307,7 @@ def tenants(self) -> list[TenantSummary]: ...
 | ID | Requirement | Prio |
 |---|---|---|
 | SPEC-CS2-CTR-001 | `tests/contract/` MUST run against `prismal-server` 0.2 with `host_fake_llm_mode=true` and assert the `X-Prismal-Fake-LLM: 1` header; the base URL is read from `PRISMAL_BASE_URL` (default `http://localhost:8000`); it MUST skip (exit 0) when no host is reachable. | `MUST` |
-| SPEC-CS2-CTR-002 | It MUST cover: health/ready; native turn (`"echo: …"` tokens, `DoneEvent.usage` equal to `SPEC-RH2-FAK-002`); `/tool` → `ToolCallEvent`; `/error` → mapped exception; AG-UI turn (`RunStarted` … `PrismalUsageEvent` → `RunFinished`); `usage()` contains the turn; `budget()` parses; WS turn (when `[ws]`); Agent Card + A2A v1 `tasks_list` (when A2A enabled); admin `decisions_report`/`routing_report`/`audit`/`tenants` (when `host_admin_enabled`). | `MUST` |
+| SPEC-CS2-CTR-002 | It MUST cover: health/ready; native turn (`"echo: …"` tokens, `DoneEvent.usage` equal to `SPEC-RH2-FAK-002`); `/tool` → `ToolCallEvent`; `/error` → mapped exception; AG-UI turn (`RunStarted` … `PrismalUsageEvent` → `RunFinished`); `usage()` contains the turn; `budget()` parses; WS turn (when `[ws]`); Agent Card v1 (when A2A enabled) and A2A v1 `tasks_list` (when the host composes an inbound A2A handler — a fake-mode host does not, and its JSON-RPC refusal MUST surface as `A2AJsonRpcError`); admin reads (when `host_admin_enabled`): without the admin scope each of `decisions_report`/`routing_report`/`audit`/`tenants` MUST raise `ForbiddenError` (`403 forbidden`), and with `PRISMAL_ADMIN_TOKEN` (a token holding `prismal:admin`) each MUST parse its `200` body. | `MUST` |
 | SPEC-CS2-NFR-001 | The AST import guard (SPEC-CSB-TRN-004) MUST still forbid `prismal` / `prismal_server` imports. | `MUST` |
 | SPEC-CS2-NFR-002 | The parity test (SPEC-CSB-NFR-001) MUST include `usage`, `iter_usage_turns`, `budget`, `ws`, `send_message(protocol=…)`, `a2a.tasks_list`, `a2a.negotiated_version`, `decisions_report`, `routing_report`, `audit`, `tenants`. | `MUST` |
 | SPEC-CS2-NFR-003 | Python ≥ 3.10, `py.typed`, `mypy --strict`; `websockets` only under `[ws]`. | `MUST` |
@@ -342,3 +342,4 @@ SYSTEM SHALL pass every CTR-002 case (closes CSB-05-01).
 | 1.3 | 2026-10-12 | Ernesto Crespo | CS2-01-06/07: ADM-004 (`org_id` is a query filter on admin routes); ADM-003 maps 404/403 by status whatever the body |
 | 1.4 | 2026-10-12 | Ernesto Crespo | CS2-03: WSK-003 names fixed (no `AuthenticationError` existed; `1011` is a WS error, consistent with "all subclass `PrismalWebSocketError`"); new WSK-005 session semantics; `connect()` on sessions |
 | 1.5 | 2026-10-12 | Ernesto Crespo | CS2-04: default `a2a_protocol="0.3"` (new A2A-006; `"auto"` by default would add a card GET before every first call and break v0.1 call sites — PLAN §3 backward-compatibility metric); negotiation cached per tenant; raw-call header rule; `tasks_list` takes the remaining ADR `ListTasks` params + `request_id`/`org_id`; new A2A-007 (never follow card URLs) |
+| 1.6 | 2026-11-02 | Ernesto Crespo | CTR-002 amended after the first run against host v0.2.0 (`a98467f`): fake mode composes no inbound A2A handler (host `docs/fake-mode.md`) and the host's built-in `none`/`bearer` backends never attach scopes, so `tasks_list` and admin `200` bodies are conditional; the admin `403` → `ForbiddenError` mapping is now verified live |

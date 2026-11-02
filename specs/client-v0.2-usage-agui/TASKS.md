@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | **Status** | `READY` |
-| **Version** | 1.7 |
-| **Date** | 2026-10-12 |
+| **Version** | 1.8 |
+| **Date** | 2026-11-02 |
 | **Author** | Ernesto Crespo |
 | **Companion** | [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) · [`SPEC.md`](./SPEC.md) |
 
@@ -25,7 +25,7 @@ published for the contract job. Every **[verify]** item (AG-UI 1.0 names, A2A v1
 | CS2-00-01 | Confirm host wire (usage keys, `/v1/usage`, `/v1/budget`, AG-UI framing, WS frames); vendor `usage_wire.json` | 0.2 d | server SPEC | USG-001, USE-*, BUD-* | `DONE` |
 | CS2-00-02 | Pin AG-UI 1.0 event names and A2A v1 method names from engine `ADR-PRT-001`; amend SPEC 1.1 | 0.2 d | engine PRT0 | AGU-*, A2A-* | `DONE` |
 | CS2-00-03 | Choose `websockets` floor with a sync client (`>=13.0`); add `[ws]` extra | 0.2 d | — | WSK-001, NFR-003 | `DONE` |
-| CS2-00-04 | CI `contract` job: start `prismal-server:0.2.x` with fake-LLM mode; version `0.2.0.dev0` | 0.3 d | server RH2-06 | CTR-001 | `BLOCKED` (job wired; first run needs host image) |
+| CS2-00-04 | CI `contract` job: start `prismal-server:0.2.x` with fake-LLM mode; version `0.2.0.dev0` | 0.3 d | server RH2-06 | CTR-001 | `BLOCKED` — job wired, and fixed: it lacked the engine flag `PRISMAL_AGUI_EVENTS_ENABLED=true` (found 2026-11-02; without it AG-UI is `protocol_not_enabled`). The first CI run needs the GHCR image, i.e. the host's `v0.2.0` tag push (RH2-07-04) |
 
 ## Phase 1 — Usage & budget
 
@@ -69,7 +69,7 @@ published for the contract job. Every **[verify]** item (AG-UI 1.0 names, A2A v1
 
 | ID | Task | Est. | Dep | SPEC | Status |
 |---|---|---|---|---|---|
-| CS2-05-01 | Contract suite vs fake-mode host (all CTR-002 cases) — **closes CSB-05-01** | 0.6 d | 00-04, phases 1–4 | CTR-001/002 | `BLOCKED` — suite written (`tests/contract/test_v02_contract.py`, 13 cases; HTTP cases dry-run green against a scratch stdlib fake of SPEC-RH2-FAK-002); green run waits on the host 0.2 fake-mode image (00-04) |
+| CS2-05-01 | Contract suite vs fake-mode host (all CTR-002 cases) — **closes CSB-05-01** | 0.6 d | 00-04, phases 1–4 | CTR-001/002 | `DONE` (local) — 2026-11-02 against host v0.2.0 (`a98467f`, fake mode, CI env): 16 passed, 2 skipped by design (`tasks_list`: no inbound A2A in fake mode; admin `200` bodies: need `PRISMAL_ADMIN_TOKEN`). SPEC CTR-002 amended (SPEC 1.6). The CI rerun is tracked by 00-04 |
 | CS2-05-02 | Parity test extended to every new method/kwarg | 0.2 d | phases 1–4 | NFR-002 | `DONE` — v0.2 names listed explicitly; params compared by name, kind and default; WS sessions included |
 | CS2-05-03 | Import guard unchanged; assert `websockets` absent from base deps | 0.1 d | 03-01 | NFR-001/003 | `DONE` — `tests/unit/test_packaging.py` (metadata extras, lazy import, `py.typed`) |
 | CS2-05-04 | Docs `usage.md`, `agui.md`, `websocket.md`, `a2a-v1.md`; examples | 0.5 d | phases 1–4 | — | `DONE` — plus `admin.md`; `errors.md`/`streaming.md`/README updated; 5 examples (HTTP ones run against the scratch fake) |
@@ -122,3 +122,4 @@ CS2-0 0.9 d · CS2-1 2.5 d · CS2-2 1.8 d · CS2-3 1.7 d · CS2-4 1.4 d · CS2-5
 | 1.5 | 2026-10-12 | Ernesto Crespo | 03-01..03 `DONE` (WebSocket); suite verified on websockets 13.0/py3.10 and 17.2/py3.13 |
 | 1.6 | 2026-10-12 | Ernesto Crespo | 04-01..04 `DONE` (A2A v1, engine fixtures vendored in `tests/fixtures/a2a_v1/`); phases 1–4 complete |
 | 1.7 | 2026-10-12 | Ernesto Crespo | 05-02..04 `DONE`; 05-01 written, run `BLOCKED`; 05-05 CHANGELOG done, tag `BLOCKED` — everything left waits on the host 0.2 image |
+| 1.8 | 2026-11-02 | Ernesto Crespo | 05-01 `DONE` locally against host v0.2.0 in fake mode (closes CSB-05-01); CI contract job gets `PRISMAL_AGUI_EVENTS_ENABLED`; 00-04 CI run and 05-05 tag still wait on the host GHCR image |

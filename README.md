@@ -156,11 +156,17 @@ The v0.2 part (`tests/contract/test_v02_contract.py`) needs a 0.2 host in
 # in a prismal-server checkout (0.2)
 uv pip install -e ".[dev]"
 PRISMAL_SERVER_HOST_FAKE_LLM_MODE=true PRISMAL_SERVER_HOST_WS_ENABLED=true \
+PRISMAL_SERVER_HOST_AGUI_ENABLED=true PRISMAL_AGUI_EVENTS_ENABLED=true \
 PRISMAL_SERVER_HOST_ADMIN_ENABLED=true uvicorn prismal_server.app:app
 
-# here
-PRISMAL_BASE_URL=http://localhost:8000 uv run pytest -m contract
+# here (the WebSocket turn needs the [ws] extra)
+PRISMAL_BASE_URL=http://localhost:8000 uv run --extra ws pytest -m contract
 ```
+
+Two cases skip by design against a fake-mode host: `tasks_list` (fake mode
+composes no inbound A2A handler) and the admin `200` bodies (set
+`PRISMAL_ADMIN_TOKEN` to a token holding `prismal:admin`; without it the
+suite checks that each admin read raises `ForbiddenError`).
 
 CI runs the same suite against the published image on demand
 (`workflow_dispatch`, job `contract`).

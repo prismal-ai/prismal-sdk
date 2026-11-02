@@ -6,9 +6,10 @@ All notable changes to `prismal-sdk`. The format follows
 
 ## [Unreleased] — 0.2.0
 
-Targets `prismal-server` 0.2 (`specs/client-v0.2-usage-agui/`). Not tagged
-until the contract suite passes against a fake-LLM `prismal-server` 0.2 image
-(DD-CS2-008); the version stays `0.2.0.dev0` until then.
+Targets `prismal-server` 0.2 (`specs/client-v0.2-usage-agui/`). The contract
+suite passes against `prismal-server` v0.2.0 in fake-LLM mode (run locally on
+2026-11-02). Not tagged until it also passes in CI against the published
+image (DD-CS2-008); the version stays `0.2.0.dev0` until then.
 
 Every v0.1 call keeps its behaviour: the new parameters default to the v0.1
 behaviour, and the base install adds no dependency.

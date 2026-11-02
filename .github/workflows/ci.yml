@@ -43,7 +43,8 @@ jobs:
     # Opt-in: only runs when explicitly dispatched. It is the v0.2 release gate
     # (DD-CS2-008, CS2-00-04): a prismal-server 0.2 image in fake-LLM mode, so
     # the suite needs no provider credentials (SPEC-CS2-CTR-001, closes
-    # CSB-05-01). BLOCKED until the host publishes that image (RH2-06/07-04).
+    # CSB-05-01). Verified locally against host v0.2.0 (a98467f); the first CI
+    # run waits on the GHCR image (host RH2-07-04: tag v0.2.0 push).
     if: github.event_name == 'workflow_dispatch'
     services:
       prismal-server:
@@ -56,6 +57,9 @@ jobs:
           PRISMAL_SERVER_HOST_WS_ENABLED: "true"
           PRISMAL_SERVER_HOST_AGUI_ENABLED: "true"
           PRISMAL_SERVER_HOST_ADMIN_ENABLED: "true"
+          # Engine flag: without it the host refuses AG-UI with
+          # `protocol_not_enabled` even when HOST_AGUI_ENABLED is true.
+          PRISMAL_AGUI_EVENTS_ENABLED: "true"
         options: >-
           --health-cmd "curl -fsS http://localhost:8000/healthz || exit 1"
           --health-interval 5s
