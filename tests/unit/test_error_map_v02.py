@@ -17,6 +17,7 @@ from prismal_sdk.exceptions import (
     ProtocolNotEnabledError,
     ServerConfigurationError,
     TurnCancelledError,
+    ValidationError,
     error_for_code,
 )
 from prismal_sdk.models import Usage
@@ -32,6 +33,11 @@ _V02_CODES = [
     ("cancelled", 200, TurnCancelledError),
     ("admin_disabled", 404, AdminDisabledError),
     ("budget_exceeded", 402, BudgetExceededError),
+    # Added to SPEC-RH2 §11 during host RH2-2…7 (host v0.2.0).
+    ("invalid_cursor", 400, InvalidRequestError),
+    ("invalid_thread_id", 422, ValidationError),
+    ("invalid_input", 422, ValidationError),
+    ("forbidden", 403, ForbiddenError),
 ]
 
 

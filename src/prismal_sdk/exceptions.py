@@ -128,7 +128,10 @@ class A2AAgentUnavailableError(PrismalAPIError):
 
 
 class ValidationError(PrismalAPIError):
-    """422 — the request body failed server-side validation."""
+    """422 — server-side validation failed.
+
+    Codes: ``validation_error``, ``invalid_thread_id``, ``invalid_input``.
+    """
 
 
 class A2ANotEnabledError(PrismalAPIError):
@@ -143,11 +146,14 @@ class ProtocolNotEnabledError(PrismalAPIError):
 
 
 class InvalidRequestError(PrismalAPIError):
-    """400 — a malformed request, e.g. an invalid usage window (``invalid_window``)."""
+    """400 — a malformed request (``invalid_window``, ``invalid_cursor``)."""
 
 
 class ForbiddenError(PrismalAPIError):
-    """403 — the identity may not act for that tenant (``forbidden_tenant``)."""
+    """403 — the identity may not act for that tenant, or lacks a scope.
+
+    Codes: ``forbidden_tenant``, ``forbidden``.
+    """
 
 
 class ServerConfigurationError(PrismalAPIError):
@@ -178,6 +184,11 @@ _ERROR_CODE_MAP: dict[str, type[PrismalAPIError]] = {
     "tenant_config_invalid": ServerConfigurationError,
     "cancelled": TurnCancelledError,
     "admin_disabled": AdminDisabledError,
+    # Added to SPEC-RH2 §11 during host RH2-2…7 (host v0.2.0).
+    "invalid_cursor": InvalidRequestError,
+    "invalid_thread_id": ValidationError,
+    "invalid_input": ValidationError,
+    "forbidden": ForbiddenError,
 }
 
 

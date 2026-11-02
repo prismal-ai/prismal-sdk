@@ -63,6 +63,11 @@ behaviour, and the base install adds no dependency.
   The exception is the admin routes, which map `404`/`403` by status.
 - `BudgetExceededError` also maps the v0.2 host's `402` (v0.1 used `429`).
 - SSE frames with only `data:` lines are delivered as event `message`.
+- Four codes that host v0.2.0 added to its SPEC §11 are now mapped:
+  `invalid_cursor` → `InvalidRequestError`, `invalid_thread_id` and
+  `invalid_input` → `ValidationError`, and `forbidden` → `ForbiddenError` on
+  every route, not only on the admin routes. They used to raise the base
+  `PrismalAPIError`.
 
 ### Security
 

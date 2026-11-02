@@ -11,11 +11,11 @@ PrismalSDKError
 │   ├── PermissionDeniedError        # 403
 │   ├── BudgetExceededError          # 402 (v0.2 host) / 429 (v0.1), or a stream error
 │   ├── A2AAgentUnavailableError     # 502
-│   ├── ValidationError              # 422
+│   ├── ValidationError              # 422 validation_error / invalid_thread_id / invalid_input
 │   ├── A2ANotEnabledError           # 404 on the two A2A routes
 │   ├── ProtocolNotEnabledError      # 406 — AG-UI disabled (v0.2)
-│   ├── InvalidRequestError          # 400 invalid_window (v0.2)
-│   ├── ForbiddenError               # 403 forbidden_tenant (v0.2)
+│   ├── InvalidRequestError          # 400 invalid_window / invalid_cursor (v0.2)
+│   ├── ForbiddenError               # 403 forbidden_tenant / forbidden (v0.2)
 │   ├── ServerConfigurationError     # 500 tenant_config_invalid (v0.2)
 │   ├── TurnCancelledError           # stream error `cancelled` (v0.2)
 │   └── AdminDisabledError           # 404 on /v1/admin/* (v0.2)

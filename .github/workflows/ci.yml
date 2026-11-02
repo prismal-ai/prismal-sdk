@@ -43,12 +43,21 @@ jobs:
     # Opt-in: only runs when explicitly dispatched. It is the v0.2 release gate
     # (DD-CS2-008, CS2-00-04): a prismal-server 0.2 image in fake-LLM mode, so
     # the suite needs no provider credentials (SPEC-CS2-CTR-001, closes
-    # CSB-05-01). Verified locally against host v0.2.0 (a98467f); the first CI
-    # run waits on the GHCR image (host RH2-07-04: tag v0.2.0 push).
+    # CSB-05-01). Verified locally against host v0.2.0 (a98467f), the commit
+    # the published 0.2.0 image is built from.
     if: github.event_name == 'workflow_dispatch'
+    # The host image is private on GHCR: the service pull authenticates with
+    # this run's GITHUB_TOKEN, which needs `packages: read` and read access to
+    # the package for this repo (package settings → Manage Actions access).
+    permissions:
+      contents: read
+      packages: read
     services:
       prismal-server:
         image: ${{ inputs.server_image || 'ghcr.io/prismal-ai/prismal-server:0.2.0' }}
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
         ports:
           - 8000:8000
         env:

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | `READY` |
-| **Version** | 1.6 |
+| **Version** | 1.7 |
 | **Date** | 2026-10-12 |
 | **Author** | Ernesto Crespo |
 | **Companion** | [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) · [`TASKS.md`](./TASKS.md) · [`VERIFY-CS2-00.md`](./VERIFY-CS2-00.md) |
@@ -295,6 +295,9 @@ def tenants(self) -> list[TenantSummary]: ...
 | `tenant_config_invalid` | `ServerConfigurationError(PrismalAPIError)` |
 | `cancelled` (stream `error`) | `TurnCancelledError(PrismalAPIError)` |
 | `admin_disabled` | `AdminDisabledError(PrismalAPIError)` |
+| `invalid_cursor` | `InvalidRequestError` |
+| `invalid_thread_id`, `invalid_input` (422) | `ValidationError` (v0.1 class) |
+| `forbidden` (403, any route) | `ForbiddenError` |
 | `budget_exceeded` (HTTP 402 or stream `error`) | `BudgetExceededError(PrismalAPIError)` with `.scope`, `.limit`, `.consumed`, `.usage` |
 
 | ID | Requirement | Prio |
@@ -343,3 +346,4 @@ SYSTEM SHALL pass every CTR-002 case (closes CSB-05-01).
 | 1.4 | 2026-10-12 | Ernesto Crespo | CS2-03: WSK-003 names fixed (no `AuthenticationError` existed; `1011` is a WS error, consistent with "all subclass `PrismalWebSocketError`"); new WSK-005 session semantics; `connect()` on sessions |
 | 1.5 | 2026-10-12 | Ernesto Crespo | CS2-04: default `a2a_protocol="0.3"` (new A2A-006; `"auto"` by default would add a card GET before every first call and break v0.1 call sites — PLAN §3 backward-compatibility metric); negotiation cached per tenant; raw-call header rule; `tasks_list` takes the remaining ADR `ListTasks` params + `request_id`/`org_id`; new A2A-007 (never follow card URLs) |
 | 1.6 | 2026-11-02 | Ernesto Crespo | CTR-002 amended after the first run against host v0.2.0 (`a98467f`): fake mode composes no inbound A2A handler (host `docs/fake-mode.md`) and the host's built-in `none`/`bearer` backends never attach scopes, so `tasks_list` and admin `200` bodies are conditional; the admin `403` → `ForbiddenError` mapping is now verified live |
+| 1.7 | 2026-11-02 | Ernesto Crespo | §7 synced with host v0.2.0 SPEC-RH2 §11, which added `invalid_cursor`, `invalid_thread_id`, `invalid_input` and `forbidden` after CS2-01-05 |
