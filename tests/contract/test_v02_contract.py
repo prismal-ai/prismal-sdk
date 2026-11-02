@@ -33,8 +33,10 @@ from prismal_sdk import (
     AdminDisabledError,
     AsyncPrismalClient,
     ForbiddenError,
+    InvalidRequestError,
     PrismalAPIError,
     PrismalClient,
+    ValidationError,
 )
 from prismal_sdk.agui import (
     PrismalUsageEvent,
@@ -212,6 +214,21 @@ def test_usage_contains_the_turn(client: PrismalClient) -> None:
 
     turns = list(client.iter_usage_turns(thread_id=thread_id, page_size=1))
     assert [turn.turn_id for turn in turns] == [report.turns[0].turn_id]
+
+
+def test_bad_usage_cursor_raises_invalid_request(client: PrismalClient) -> None:
+    with pytest.raises(InvalidRequestError) as info:
+        client.usage(cursor="not-a-cursor")
+    assert info.value.code == "invalid_cursor"
+
+
+def test_org_scoped_shaped_thread_id_raises_validation(client: PrismalClient) -> None:
+    # Single-tenant hosts refuse a raw id shaped `^\d+:` (SPEC-RH2-THR-001).
+    if ORG_ID is not None:
+        pytest.skip("only a single-tenant host refuses `^\\d+:` thread ids")
+    with pytest.raises(ValidationError) as info:
+        list(client.send_message("1:contract", "hi"))
+    assert info.value.code == "invalid_thread_id"
 
 
 def test_budget_parses(client: PrismalClient) -> None:
