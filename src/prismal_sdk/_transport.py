@@ -15,6 +15,7 @@ import json
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -33,6 +34,22 @@ _IDEMPOTENT_METHODS = frozenset({"GET"})
 # The only non-GET route safe to re-issue: re-minting a thread id costs an
 # unused id and nothing else (SPEC-CSB-RSL-001).
 _RETRYABLE_POST_PATHS = frozenset({"/threads"})
+
+_DOT_SEGMENTS = frozenset({"", ".", ".."})
+
+
+def path_segment(name: str, value: str) -> str:
+    """``value`` percent-encoded as exactly one URL path segment.
+
+    Caller-supplied ids (``thread_id``) are interpolated into route paths;
+    left raw, ``/``, ``?``, ``#`` or ``..`` would retarget the request — bearer
+    token included — at another route. ``""``, ``.`` and ``..`` stay dot
+    segments whatever the encoding, so they raise ``ValueError`` instead.
+    """
+    if value in _DOT_SEGMENTS:
+        raise ValueError(f"{name} must be a non-empty id other than '.' or '..'")
+    return quote(value, safe="")
+
 
 DEFAULT_BACKOFF_BASE_S = 0.25
 DEFAULT_BACKOFF_CAP_S = 4.0

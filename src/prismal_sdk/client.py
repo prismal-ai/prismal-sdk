@@ -34,6 +34,7 @@ from prismal_sdk._transport import (
     decode_json,
     extract_detail,
     is_retryable,
+    path_segment,
     raise_for_response,
     wrap_transport_exception,
 )
@@ -470,7 +471,10 @@ class PrismalClient:
         headers = {**self._headers(org_id), **profile.request_headers}
         try:
             with self._client.stream(
-                "POST", f"/threads/{thread_id}/messages", json=body, headers=headers
+                "POST",
+                f"/threads/{path_segment('thread_id', thread_id)}/messages",
+                json=body,
+                headers=headers,
             ) as response:
                 if not response.is_success:
                     response.read()

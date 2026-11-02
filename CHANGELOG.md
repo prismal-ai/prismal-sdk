@@ -64,6 +64,15 @@ behaviour, and the base install adds no dependency.
 - `BudgetExceededError` also maps the v0.2 host's `402` (v0.1 used `429`).
 - SSE frames with only `data:` lines are delivered as event `message`.
 
+### Security
+
+- `thread_id` is percent-encoded as a single path segment in
+  `send_message` (`/threads/{id}/messages`) and `client.ws()`
+  (`/ws/threads/{id}`), on both clients. A raw id containing `/`, `?`, `#`
+  or `..` could retarget the request, bearer token included, at another
+  route. `""`, `.` and `..` now raise `ValueError` before any I/O. Ordinary
+  ids (`[A-Za-z0-9._~-]`) are sent unchanged.
+
 ### Notes
 
 - `a2a_protocol` defaults to `"0.3"` rather than `"auto"`. With `"auto"`,

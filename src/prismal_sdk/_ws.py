@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 import httpx
 
 from prismal_sdk._chat import AgUiTranslator, translate_chat_event
-from prismal_sdk._transport import parse_error_object
+from prismal_sdk._transport import parse_error_object, path_segment
 from prismal_sdk.agui import AgUiEvent, RunFinished, StreamProtocol
 from prismal_sdk.exceptions import (
     MessageTooLargeError,
@@ -80,7 +80,7 @@ def ws_url(base_url: str, thread_id: str) -> str:
     """``http(s)://host/prefix`` -> ``ws(s)://host/prefix/ws/threads/{id}``."""
     url = httpx.URL(base_url)
     scheme = {"http": "ws", "https": "wss"}.get(url.scheme, url.scheme)
-    path = url.path.rstrip("/") + f"/ws/threads/{thread_id}"
+    path = url.path.rstrip("/") + f"/ws/threads/{path_segment('thread_id', thread_id)}"
     return str(url.copy_with(scheme=scheme, path=path))
 
 
