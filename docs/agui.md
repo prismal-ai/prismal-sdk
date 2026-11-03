@@ -60,6 +60,61 @@ is public for callers that read AG-UI frames from elsewhere.
   [`errors.md`](./errors.md)). A `BudgetExceededError` raised this way
   carries the usage the host reported before the error.
 
+## Running from a `RunAgentInput` — and resuming interrupts
+
+`client.run_agui(thread_id, content)` posts an AG-UI 1.0 `RunAgentInput` to
+`POST /v1/agui` (host ≥ 0.3 for resume) and yields the same event models.
+Pass **either** `content` (a new user message) **or** `resume` (answers to
+open interrupts) — both or neither raise `ValueError` before any I/O.
+`run_id=` sets `RunAgentInput.runId`; it defaults to a fresh uuid4 hex.
+
+When the agent pauses (an engine approval gate, a LangGraph `interrupt()`),
+the run ends with `RunFinished.is_interrupted == True` and
+`RunFinished.interrupts` lists the open `AgUiInterrupt`s (`id`, `reason`,
+`message`, `tool_call_id`, `metadata`). Answer every one of them:
+
+```python
+from prismal_sdk import PrismalClient, ResumeConflictError
+from prismal_sdk.agui import RunFinished, TextMessageContent
+
+with PrismalClient("http://localhost:8000") as client:
+    thread_id = client.create_thread().thread_id
+    events = list(client.run_agui(thread_id, "Deploy the release"))
+    finished = events[-1]
+    while isinstance(finished, RunFinished) and finished.is_interrupted:
+        for interrupt in finished.interrupts:
+            print(f"[{interrupt.reason}] {interrupt.message}")
+        answers = [i.resolve({"action": "approve"}) for i in finished.interrupts]
+        events = list(client.run_agui(thread_id, resume=answers))
+        finished = events[-1]
+    print("".join(e.delta for e in events if isinstance(e, TextMessageContent)))
+```
+
+- **Ids are opaque.** The host 0.3 sends `"<engine id>.<checkpoint id>"`;
+  send them back exactly as received (`interrupt.resolve()` does).
+- **Payloads are yours.** `resolve(payload)` / `ResumeEntry(payload=...)`
+  go to the engine unchanged; the SDK never interprets them. Build a
+  `ResumeEntry(interrupt_id=..., status=..., payload=..., metadata=...)`
+  directly for full control. `status="cancelled"` is sent as given, and the
+  host 0.3 refuses it (`422 unsupported_resume`).
+- **Never retried.** `run_agui` is not retried, not even on a connect
+  failure: a resume may already have run. The host also keeps running a
+  resume whose client disconnected. If you are unsure whether a resume
+  landed, re-sending is safe — the host answers `409` instead of resuming
+  twice.
+- **Refusals** raise before any event:
+
+  | Code | Exception | When |
+  |---|---|---|
+  | `no_pending_interrupt` (409) | `ResumeConflictError` | Nothing to resume, already answered (a retry), or a stale checkpoint suffix |
+  | `resume_in_progress` (409) | `ResumeConflictError` | Another resume of the thread is still running |
+  | `invalid_resume` (422) | `ValidationError` | The ids are not exactly the open interrupts, or lack the checkpoint suffix |
+  | `unsupported_resume` (422) | `ValidationError` | A `cancelled` entry |
+
+Resume is AG-UI only: it is not available over WebSocket or the native
+`send_message` route. Client-declared frontend tools are not forwarded yet
+(the engine does not support them).
+
 ## When the host cannot stream AG-UI
 
 A host or tenant with AG-UI disabled answers `406` and the SDK raises

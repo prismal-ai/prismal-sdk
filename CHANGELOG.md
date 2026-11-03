@@ -4,12 +4,37 @@ All notable changes to `prismal-sdk`. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — 0.2.0
+## [Unreleased] — 0.3.0
+
+Targets `prismal-server` 0.3 (`specs/client-v0.3-agui-resume/`). Includes
+everything listed under 0.2.0 below, which was never tagged on its own.
+
+### Added
+
+- **AG-UI run input and interrupt resume.** `client.run_agui(thread_id,
+  content)` posts an AG-UI 1.0 `RunAgentInput` to `POST /v1/agui`;
+  `client.run_agui(thread_id, resume=[...])` answers the open interrupts of
+  an interrupted run. `RunFinished.is_interrupted` / `.interrupts` read
+  them as `AgUiInterrupt`, and `AgUiInterrupt.resolve(payload)` builds a
+  `ResumeEntry`. Ids and payloads pass through untouched, and the route is
+  never retried. See `docs/agui.md` and `examples/agui_resume.py`.
+- **Errors.** `ResumeConflictError` (409 `no_pending_interrupt`,
+  `resume_in_progress`); `invalid_resume` and `unsupported_resume` (422) map
+  to `ValidationError`.
+- The contract suite `tests/contract/test_v03_contract.py` covers the resume
+  round trip and every refusal against a fake-LLM host 0.3.
+
+### Changed
+
+- CI's `contract` job installs `prismal-server` (0.3.x) from PyPI and starts
+  it in fake-LLM mode on every pull request, replacing the private container
+  image.
+
+## 0.2.0 (never tagged; ships in 0.3.0)
 
 Targets `prismal-server` 0.2 (`specs/client-v0.2-usage-agui/`). The contract
 suite passes against `prismal-server` v0.2.0 in fake-LLM mode (run locally on
-2026-11-02). Not tagged until it also passes in CI against the published
-image (DD-CS2-008); the version stays `0.2.0.dev0` until then.
+2026-11-02).
 
 Every v0.1 call keeps its behaviour: the new parameters default to the v0.1
 behaviour, and the base install adds no dependency.

@@ -109,9 +109,21 @@ with PrismalClient("http://localhost:8000") as client:
             ...
 ```
 
+AG-UI interrupt resume (v0.3, host ≥ 0.3):
+
+```python
+with PrismalClient("http://localhost:8000") as client:
+    thread_id = client.create_thread().thread_id
+    events = list(client.run_agui(thread_id, "Deploy the release"))
+    finished = events[-1]                         # RunFinished
+    if finished.is_interrupted:
+        answers = [i.resolve({"action": "approve"}) for i in finished.interrupts]
+        events = list(client.run_agui(thread_id, resume=answers))
+```
+
 More in [`examples/`](./examples/): `quickstart.py`, `streaming_chat.py`,
 `a2a_agent_card.py`, `usage_and_budget.py`, `agui_stream.py`,
-`websocket_chat.py`, `a2a_v1_tasks.py`, `admin_reports.py`.
+`agui_resume.py`, `websocket_chat.py`, `a2a_v1_tasks.py`, `admin_reports.py`.
 
 ## What's in the box
 
@@ -123,6 +135,7 @@ More in [`examples/`](./examples/): `quickstart.py`, `streaming_chat.py`,
 | Per-turn usage (v0.2) | `DoneEvent.usage` / `PrismalUsageEvent` | same |
 | Usage & budget reads (v0.2) | `.usage()` / `.iter_usage_turns()` / `.budget()` | same |
 | AG-UI 1.0 streaming (v0.2) | `.send_message(..., protocol="ag-ui")` | same |
+| AG-UI run input & interrupt resume (v0.3) | `.run_agui(thread_id, content)` / `.run_agui(thread_id, resume=[...])` | same, `async for` |
 | WebSocket sessions (v0.2, `[ws]`) | `.ws(thread_id)` → `send_message` / `cancel` | same, `async with` |
 | A2A v1.0 (v0.2) | `a2a_protocol=` · `.a2a.negotiated_version()` · `.a2a.tasks_list()` | same |
 | Admin reads (v0.2) | `.decisions_report()` / `.routing_report()` / `.audit()` / `.tenants()` | same |

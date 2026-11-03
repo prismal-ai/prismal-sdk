@@ -37,8 +37,8 @@ Host: `prismal-server` 0.3.0 (PyPI), engine `prismal-ai` 3.22.1.
 
 | ID | Task | SPEC | Status |
 |---|---|---|---|
-| CS3-03-01 | Contract cases for resume against host 0.3 fake mode | CTR-002 | `TODO` |
-| CS3-03-02 | `docs/agui.md` resume section, `docs/errors.md`, README, example, CHANGELOG | — | `TODO` |
+| CS3-03-01 | Contract cases for resume against host 0.3 fake mode | CTR-002 | `DONE` — 2026-11-02 vs `prismal-server==0.3.0` from PyPI (engine 3.22.1), fake mode, CI env: 26 passed, 2 skipped by design (v0.2 `tasks_list`, admin `200` bodies) |
+| CS3-03-02 | `docs/agui.md` resume section, `docs/errors.md`, README, example, CHANGELOG | — | `DONE` — `examples/agui_resume.py` run live against the fake host |
 
 ## Phase 4 — Release
 
