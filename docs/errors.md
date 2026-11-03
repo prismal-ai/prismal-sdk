@@ -9,15 +9,41 @@ PrismalSDKError
 │   ├── RuntimeCompositionError      # 503 — default runtime not ready
 │   ├── PolicyDeniedError            # 403
 │   ├── PermissionDeniedError        # 403
-│   ├── BudgetExceededError          # 429
+│   ├── BudgetExceededError          # 402 (v0.2 host) / 429 (v0.1), or a stream error
 │   ├── A2AAgentUnavailableError     # 502
-│   ├── ValidationError              # 422
-│   └── A2ANotEnabledError           # 404 on the two A2A routes
+│   ├── ValidationError              # 422 validation_error / invalid_thread_id / invalid_input
+│   │                                #     / invalid_resume / unsupported_resume (v0.3)
+│   ├── A2ANotEnabledError           # 404 on the two A2A routes
+│   ├── ProtocolNotEnabledError      # 406 — AG-UI disabled (v0.2)
+│   ├── InvalidRequestError          # 400 invalid_window / invalid_cursor (v0.2)
+│   ├── ForbiddenError               # 403 forbidden_tenant / forbidden (v0.2)
+│   ├── ServerConfigurationError     # 500 tenant_config_invalid (v0.2)
+│   ├── TurnCancelledError           # stream error `cancelled` (v0.2)
+│   ├── AdminDisabledError           # 404 on /v1/admin/* (v0.2)
+│   └── ResumeConflictError          # 409 no_pending_interrupt / resume_in_progress (v0.3)
 ├── PrismalTransportError            # no response was ever received
 │   ├── PrismalConnectionError       # DNS / refused / reset
-│   └── PrismalTimeoutError          # connect or read timeout
-└── A2AJsonRpcError                  # JSON-RPC `error` member from POST /a2a
+│   ├── PrismalTimeoutError          # connect or read timeout
+│   └── PrismalWebSocketError        # a WS session ended abnormally (v0.2)
+│       ├── WebSocketAuthenticationError   # close 1008
+│       ├── MessageTooLargeError           # close 1009
+│       ├── WebSocketServerError           # close 1011
+│       ├── WebSocketProtocolError         # close 4400 / undecodable frame
+│       └── TurnInProgressError            # close 4409
+├── WebSocketUnavailableError        # client.ws() without the [ws] extra (also ImportError)
+├── A2AJsonRpcError                  # JSON-RPC `error` member from POST /a2a
+└── A2AVersionError                  # A2A call needs another version than the peer speaks (v0.2)
 ```
+
+The class is chosen by the body's `code`, never by the HTTP status alone, so
+a REST error, a native `error` frame, an AG-UI `RUN_ERROR` and a WebSocket
+`error` frame with the same code raise the same class. Unknown codes raise
+the base `PrismalAPIError`. The admin routes are the exception: they map
+`404`/`403` by status (see [`admin.md`](./admin.md)).
+
+`BudgetExceededError` also carries the host's `scope`, `limit`, `consumed`
+and, when a running turn was stopped, the partial `usage` (see
+[`usage.md`](./usage.md)).
 
 ## Why `A2AJsonRpcError` is not a `PrismalAPIError`
 

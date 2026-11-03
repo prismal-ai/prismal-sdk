@@ -4,7 +4,9 @@ Exercises a **running** ``prismal-server`` instance — not run by default.
 Point it at a local host with:
 
     uvicorn prismal_server.app:app --reload   # in a prismal-server checkout
-    uv run pytest -m contract --base-url http://localhost:8000
+    PRISMAL_BASE_URL=http://localhost:8000 uv run pytest -m contract
+
+``PRISMAL_BASE_URL`` defaults to ``http://localhost:8000`` (SPEC-CS2-CTR-001).
 
 Deselected by default (`pytest.ini_options.addopts` carries `-m 'not
 contract'`, which a command-line `-m contract` overrides); every test here is
@@ -15,6 +17,8 @@ because no server — or some unrelated service — happens to be on the port.
 
 from __future__ import annotations
 
+import os
+
 import httpx
 import pytest
 
@@ -22,7 +26,7 @@ from prismal_sdk import PrismalClient
 
 pytestmark = pytest.mark.contract
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = os.environ.get("PRISMAL_BASE_URL", "http://localhost:8000")
 
 
 def _server_reachable() -> bool:

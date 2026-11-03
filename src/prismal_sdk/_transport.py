@@ -12,7 +12,10 @@ Internal module (leading underscore) — not part of the public API.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
+from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -31,6 +34,22 @@ _IDEMPOTENT_METHODS = frozenset({"GET"})
 # The only non-GET route safe to re-issue: re-minting a thread id costs an
 # unused id and nothing else (SPEC-CSB-RSL-001).
 _RETRYABLE_POST_PATHS = frozenset({"/threads"})
+
+_DOT_SEGMENTS = frozenset({"", ".", ".."})
+
+
+def path_segment(name: str, value: str) -> str:
+    """``value`` percent-encoded as exactly one URL path segment.
+
+    Caller-supplied ids (``thread_id``) are interpolated into route paths;
+    left raw, ``/``, ``?``, ``#`` or ``..`` would retarget the request — bearer
+    token included — at another route. ``""``, ``.`` and ``..`` stay dot
+    segments whatever the encoding, so they raise ``ValueError`` instead.
+    """
+    if value in _DOT_SEGMENTS:
+        raise ValueError(f"{name} must be a non-empty id other than '.' or '..'")
+    return quote(value, safe="")
+
 
 DEFAULT_BACKOFF_BASE_S = 0.25
 DEFAULT_BACKOFF_CAP_S = 4.0
@@ -54,6 +73,43 @@ def build_headers(
     return headers
 
 
+def rfc3339_utc(name: str, value: datetime) -> str:
+    """Serialize an aware datetime as RFC 3339 UTC (``...Z``).
+
+    A naive datetime is ambiguous on the wire, so it is rejected with
+    ``ValueError`` before any I/O (SPEC-CS2-USE-001).
+    """
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError(
+            f"{name} must be a timezone-aware datetime, got naive {value!r}"
+        )
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def build_query(
+    values: Mapping[str, str | int | datetime | None],
+) -> dict[str, str]:
+    """Query params from ``values``, dropping ``None`` (SPEC-CS2-USE-001)."""
+    query: dict[str, str] = {}
+    for name, value in values.items():
+        if value is None:
+            continue
+        query[name] = (
+            rfc3339_utc(name, value) if isinstance(value, datetime) else str(value)
+        )
+    return query
+
+
+def parse_error_object(response: httpx.Response) -> dict[str, Any] | None:
+    """The ``error`` object of a REST error body, or ``None`` if there is none."""
+    try:
+        body: Any = response.json()
+    except (json.JSONDecodeError, ValueError):
+        return None
+    error = body.get("error") if isinstance(body, dict) else None
+    return error if isinstance(error, dict) else None
+
+
 def parse_error_body(response: httpx.Response) -> tuple[str, str]:
     """Extract ``(code, message)`` from a REST error body, tolerating malformed JSON.
 
@@ -61,13 +117,8 @@ def parse_error_body(response: httpx.Response) -> tuple[str, str]:
     unexpectedly shaped body (SPEC-CSB-ERR-002) — the SDK never crashes on an
     unexpected error shape.
     """
-    try:
-        body: Any = response.json()
-    except (json.JSONDecodeError, ValueError):
-        return "internal_error", f"HTTP {response.status_code}"
-
-    error = body.get("error") if isinstance(body, dict) else None
-    if not isinstance(error, dict):
+    error = parse_error_object(response)
+    if error is None:
         return "internal_error", f"HTTP {response.status_code}"
 
     code = error.get("code")
@@ -124,7 +175,9 @@ def raise_for_response(response: httpx.Response) -> None:
     if response.is_success:
         return
     code, message = parse_error_body(response)
-    raise error_for_code(response.status_code, code, message)
+    raise error_for_code(
+        response.status_code, code, message, parse_error_object(response)
+    )
 
 
 def wrap_transport_exception(exc: httpx.HTTPError) -> PrismalAPIError | Exception:

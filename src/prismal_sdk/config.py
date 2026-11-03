@@ -8,6 +8,8 @@ tenancy default, timeout, retry budget). It has no relationship to
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import AnyHttpUrl, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -33,6 +35,9 @@ class ClientConfig(BaseSettings):
     org_id: str | None = None
     timeout_s: float = 30.0
     max_retries: int = 2
+    #: ``"0.3"`` (v0.1 behaviour), ``"1.0"``, or ``"auto"`` (read the Agent
+    #: Card per tenant) — SPEC-CS2-A2A-001/006.
+    a2a_protocol: Literal["auto", "0.3", "1.0"] = "0.3"
 
     @field_validator("base_url")
     @classmethod
@@ -51,5 +56,6 @@ class ClientConfig(BaseSettings):
         return (
             f"ClientConfig(base_url={self.base_url!r}, token={token_repr}, "
             f"org_id={self.org_id!r}, timeout_s={self.timeout_s!r}, "
-            f"max_retries={self.max_retries!r})"
+            f"max_retries={self.max_retries!r}, "
+            f"a2a_protocol={self.a2a_protocol!r})"
         )

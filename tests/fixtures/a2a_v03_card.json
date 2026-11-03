@@ -1,0 +1,60 @@
+{
+  "name": "prismal",
+  "description": "Prismal multi-agent framework exposed over A2A.",
+  "url": "https://prismal.example.com/a2a",
+  "version": "9.9.9",
+  "protocolVersion": "0.3.0",
+  "skills": [
+    {
+      "id": "coding",
+      "name": "Coding",
+      "description": "Prismal 'coding' capability exposed over A2A.",
+      "tags": [
+        "general",
+        "code_execution"
+      ],
+      "inputModes": [
+        "text/plain"
+      ],
+      "outputModes": [
+        "text/plain"
+      ]
+    },
+    {
+      "id": "rag",
+      "name": "Rag",
+      "description": "Prismal 'rag' capability exposed over A2A.",
+      "tags": [
+        "rag",
+        "general"
+      ],
+      "inputModes": [
+        "text/plain"
+      ],
+      "outputModes": [
+        "text/plain"
+      ]
+    },
+    {
+      "id": "research",
+      "name": "Research",
+      "description": "Prismal 'research' capability exposed over A2A.",
+      "tags": [
+        "general",
+        "research"
+      ],
+      "inputModes": [
+        "text/plain"
+      ],
+      "outputModes": [
+        "text/plain"
+      ]
+    }
+  ],
+  "capabilities": {
+    "streaming": true
+  },
+  "securitySchemes": {},
+  "provider": null,
+  "did": null
+}
