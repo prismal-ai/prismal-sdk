@@ -53,7 +53,7 @@ if TYPE_CHECKING:
     from websockets.sync.client import ClientConnection as SyncConnection
 
 INSTALL_HINT = (
-    "WebSocket support needs the optional dependency: pip install 'prismal-sdk[ws]'"
+    "WebSocket support needs the optional dependency: pip install 'prismal-ai-sdk[ws]'"
 )
 
 _CANCEL_FRAME = json.dumps({"type": "cancel"})

@@ -19,7 +19,7 @@ request against `prismal-server` from PyPI in fake-LLM mode. See
 [`CHANGELOG.md`](./CHANGELOG.md).
 
 ```bash
-pip install prismal-sdk          # or: pip install 'prismal-sdk[ws]' for client.ws()
+pip install prismal-ai-sdk     # or: pip install 'prismal-ai-sdk[ws]' for client.ws()
 ```
 
 SDDs: v0.3 in [`specs/client-v0.3-agui-resume/`](./specs/client-v0.3-agui-resume/)
@@ -46,8 +46,8 @@ thread, stream a chat turn, and talk A2A over HTTP.
 ## Install
 
 ```bash
-uv add prismal-sdk          # once published
-uv add 'prismal-sdk[ws]'    # + the WebSocket client (adds `websockets`)
+uv add prismal-ai-sdk       # once published
+uv add 'prismal-ai-sdk[ws]'    # + the WebSocket client (adds `websockets`)
 # or, from a clone:
 uv pip install -e ".[dev]"
 ```
@@ -109,7 +109,7 @@ with PrismalClient("http://localhost:8000") as client:
 
     print(client.budget().status)                 # within / soft_exceeded / …
 
-    with client.ws(thread.thread_id) as session:  # needs prismal-sdk[ws]
+    with client.ws(thread.thread_id) as session:  # needs prismal-ai-sdk[ws]
         for event in session.send_message("¿Seguimos?"):
             ...
 ```
@@ -202,9 +202,14 @@ already-published one ends green without uploading.
 
 One-time PyPI setup (maintainer account): add a trusted publisher — a
 *pending* publisher until the project exists — at
-<https://pypi.org/manage/account/publishing/> with project `prismal-sdk`,
+<https://pypi.org/manage/account/publishing/> with project `prismal-ai-sdk`,
 owner `prismal-ai`, repository `prismal-sdk`, workflow `release.yml`,
 environment `pypi`.
+
+The PyPI distribution is **`prismal-ai-sdk`**; the repository and the import
+module stay `prismal-sdk` / `prismal_sdk`. PyPI refuses `prismal-sdk`: its
+name-collision check treats `l` and `i` alike, so it equals the unrelated
+`prismai-sdk`.
 
 ## The contract with the host
 

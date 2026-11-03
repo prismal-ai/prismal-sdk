@@ -1,6 +1,7 @@
 name: Release
 
-# Publishes prismal-sdk to PyPI from `main` (SPEC-CS3-REL-001).
+# Publishes `prismal-ai-sdk` (import `prismal_sdk`) to PyPI from `main`
+# (SPEC-CS3-REL-001).
 #
 # Every push to `main` (in practice: merging the develop → main PR) runs this
 # workflow. It publishes the version in pyproject.toml when that version is a
@@ -9,8 +10,9 @@ name: Release
 # uploaded) ends green without publishing, so re-runs are harmless.
 #
 # Publishing uses PyPI trusted publishing (OIDC): no token is stored in the
-# repository. PyPI must list this publisher once — owner `prismal-ai`,
-# repository `prismal-sdk`, workflow `release.yml`, environment `pypi`
+# repository. PyPI must list this publisher once — project
+# `prismal-ai-sdk`, owner `prismal-ai`, repository `prismal-sdk`, workflow
+# `release.yml`, environment `pypi`
 # (https://pypi.org/manage/account/publishing/, "pending publisher" while
 # the project does not exist on PyPI yet).
 on:
@@ -47,14 +49,14 @@ jobs:
             exit 0
           fi
           status="$(curl -s -o /dev/null -w '%{http_code}' \
-            "https://pypi.org/pypi/prismal-sdk/${version}/json")"
+            "https://pypi.org/pypi/prismal-ai-sdk/${version}/json")"
           if [ "$status" = "200" ]; then
-            echo "::notice::prismal-sdk ${version} is already on PyPI; nothing to publish"
+            echo "::notice::prismal-ai-sdk ${version} is already on PyPI; nothing to publish"
             echo "publish=false" >> "$GITHUB_OUTPUT"
           elif [ "$status" = "404" ]; then
             echo "publish=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::PyPI answered ${status} for prismal-sdk ${version}"
+            echo "::error::PyPI answered ${status} for prismal-ai-sdk ${version}"
             exit 1
           fi
 
@@ -64,7 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/prismal-sdk/${{ needs.plan.outputs.version }}/
+      url: https://pypi.org/project/prismal-ai-sdk/${{ needs.plan.outputs.version }}/
     permissions:
       # OIDC token for PyPI trusted publishing.
       id-token: write
@@ -126,4 +128,4 @@ jobs:
           gh release create "v${VERSION}" dist/* \
             --target "${GITHUB_SHA}" \
             --title "v${VERSION}" \
-            --notes "prismal-sdk ${VERSION} — https://pypi.org/project/prismal-sdk/${VERSION}/ · see CHANGELOG.md"
+            --notes "prismal-ai-sdk ${VERSION} — https://pypi.org/project/prismal-ai-sdk/${VERSION}/ · see CHANGELOG.md"

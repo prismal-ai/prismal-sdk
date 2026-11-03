@@ -55,7 +55,7 @@ check(marker.is_file(), f"py.typed missing from the built distribution ({marker}
 
 # The two version declarations must agree; they drift easily because one lives
 # in pyproject.toml and the other in __init__.py.
-installed = importlib.metadata.version("prismal-sdk")
+installed = importlib.metadata.version("prismal-ai-sdk")
 check(
     installed == prismal_sdk.__version__,
     f"version mismatch: metadata {installed!r} != __version__ "
@@ -75,4 +75,4 @@ if failures:
         print(f"  - {failure}", file=sys.stderr)
     sys.exit(1)
 
-print(f"smoke test OK — prismal-sdk {prismal_sdk.__version__} ({installed})")
+print(f"smoke test OK — prismal-ai-sdk {prismal_sdk.__version__} ({installed})")

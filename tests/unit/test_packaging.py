@@ -18,7 +18,7 @@ _SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "prismal_sdk"
 
 
 def _requirements() -> list[Requirement]:
-    return [Requirement(line) for line in requires("prismal-sdk") or []]
+    return [Requirement(line) for line in requires("prismal-ai-sdk") or []]
 
 
 def _extras_of(name: str) -> set[str | None]:

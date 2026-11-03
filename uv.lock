@@ -452,7 +452,7 @@ wheels = [
 ]
 
 [[package]]
-name = "prismal-sdk"
+name = "prismal-ai-sdk"
 version = "0.3.0"
 source = { editable = "." }
 dependencies = [
