@@ -22,7 +22,9 @@ from prismal_sdk.admin import (
 )
 from prismal_sdk.agui import (
     AgUiEvent,
+    AgUiInterrupt,
     PrismalUsageEvent,
+    ResumeEntry,
     RunFinished,
     StreamProtocol,
     parse_agui_event,
@@ -49,6 +51,7 @@ from prismal_sdk.exceptions import (
     PrismalTransportError,
     PrismalWebSocketError,
     ProtocolNotEnabledError,
+    ResumeConflictError,
     RuntimeCompositionError,
     ServerConfigurationError,
     TurnCancelledError,
@@ -81,7 +84,7 @@ from prismal_sdk.models import (
     UsageTurn,
 )
 
-__version__ = "0.2.0.dev0"
+__version__ = "0.3.0"
 
 __all__ = [
     "__version__",
@@ -116,7 +119,9 @@ __all__ = [
     "TenantSummary",
     # AG-UI (full set in prismal_sdk.agui)
     "AgUiEvent",
+    "AgUiInterrupt",
     "PrismalUsageEvent",
+    "ResumeEntry",
     "RunFinished",
     "StreamProtocol",
     "parse_agui_event",
@@ -133,6 +138,7 @@ __all__ = [
     "A2AAgentUnavailableError",
     "A2ANotEnabledError",
     "ValidationError",
+    "ResumeConflictError",
     "ProtocolNotEnabledError",
     "InvalidRequestError",
     "ForbiddenError",

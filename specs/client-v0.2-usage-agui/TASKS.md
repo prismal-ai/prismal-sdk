@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **Status** | `READY` |
-| **Version** | 1.9 |
+| **Version** | 1.10 |
 | **Date** | 2026-11-02 |
 | **Author** | Ernesto Crespo |
 | **Companion** | [`PLAN.md`](./PLAN.md) · [`ARCHITECTURE.md`](./ARCHITECTURE.md) · [`SPEC.md`](./SPEC.md) |
@@ -25,7 +25,7 @@ published for the contract job. Every **[verify]** item (AG-UI 1.0 names, A2A v1
 | CS2-00-01 | Confirm host wire (usage keys, `/v1/usage`, `/v1/budget`, AG-UI framing, WS frames); vendor `usage_wire.json` | 0.2 d | server SPEC | USG-001, USE-*, BUD-* | `DONE` |
 | CS2-00-02 | Pin AG-UI 1.0 event names and A2A v1 method names from engine `ADR-PRT-001`; amend SPEC 1.1 | 0.2 d | engine PRT0 | AGU-*, A2A-* | `DONE` |
 | CS2-00-03 | Choose `websockets` floor with a sync client (`>=13.0`); add `[ws]` extra | 0.2 d | — | WSK-001, NFR-003 | `DONE` |
-| CS2-00-04 | CI `contract` job: start `prismal-server:0.2.x` with fake-LLM mode; version `0.2.0.dev0` | 0.3 d | server RH2-06 | CTR-001 | `BLOCKED` — job wired (engine flag `PRISMAL_AGUI_EVENTS_ENABLED` added; pull authenticated with `GITHUB_TOKEN`, `packages: read`). Host `v0.2.0` image is published, but private: the 2026-11-02 dispatch (run 41502975970) failed at the pull with `403`. Needs the package `ghcr.io/prismal-ai/prismal-server` to grant this repo Read (package settings → Manage Actions access), or to be public |
+| CS2-00-04 | CI `contract` job: start `prismal-server:0.2.x` with fake-LLM mode; version `0.2.0.dev0` | 0.3 d | server RH2-06 | CTR-001 | `DONE` — superseded by **CS3-00-03** (2026-11-02): the job now installs `prismal-server` from PyPI and starts it in fake mode, so the private GHCR image (dispatch run 41502975970, `403`) is no longer needed |
 
 ## Phase 1 — Usage & budget
 
@@ -73,7 +73,7 @@ published for the contract job. Every **[verify]** item (AG-UI 1.0 names, A2A v1
 | CS2-05-02 | Parity test extended to every new method/kwarg | 0.2 d | phases 1–4 | NFR-002 | `DONE` — v0.2 names listed explicitly; params compared by name, kind and default; WS sessions included |
 | CS2-05-03 | Import guard unchanged; assert `websockets` absent from base deps | 0.1 d | 03-01 | NFR-001/003 | `DONE` — `tests/unit/test_packaging.py` (metadata extras, lazy import, `py.typed`) |
 | CS2-05-04 | Docs `usage.md`, `agui.md`, `websocket.md`, `a2a-v1.md`; examples | 0.5 d | phases 1–4 | — | `DONE` — plus `admin.md`; `errors.md`/`streaming.md`/README updated; 5 examples (HTTP ones run against the scratch fake) |
-| CS2-05-05 | CHANGELOG; tag `v0.2.0` only after 05-01 green in CI (supersedes CSB-05-06) | 0.2 d | 05-01 | — | `BLOCKED` — `CHANGELOG.md` done (`[Unreleased] — 0.2.0`); version stays `0.2.0.dev0`, tag waits on 05-01 |
+| CS2-05-05 | CHANGELOG; tag `v0.2.0` only after 05-01 green in CI (supersedes CSB-05-06) | 0.2 d | 05-01 | — | `DONE` — superseded by **CS3-04-01**: 0.2.0 was never tagged; its content ships as **0.3.0** together with AG-UI resume (`specs/client-v0.3-agui-resume/`) |
 
 ## Test inventory & traceability
 
@@ -124,3 +124,4 @@ CS2-0 0.9 d · CS2-1 2.5 d · CS2-2 1.8 d · CS2-3 1.7 d · CS2-4 1.4 d · CS2-5
 | 1.7 | 2026-10-12 | Ernesto Crespo | 05-02..04 `DONE`; 05-01 written, run `BLOCKED`; 05-05 CHANGELOG done, tag `BLOCKED` — everything left waits on the host 0.2 image |
 | 1.8 | 2026-11-02 | Ernesto Crespo | 05-01 `DONE` locally against host v0.2.0 in fake mode (closes CSB-05-01); CI contract job gets `PRISMAL_AGUI_EVENTS_ENABLED`; 00-04 CI run and 05-05 tag still wait on the host GHCR image |
 | 1.9 | 2026-11-02 | Ernesto Crespo | Host v0.2.0 released (PyPI + private GHCR image): 05-01 re-run against the PyPI artifact (18 passed); 4 host §11 codes mapped (SPEC 1.7); 00-04 dispatch blocked by GHCR package access, so 05-05 tag still waits |
+| 1.10 | 2026-11-02 | Ernesto Crespo | Host 0.3.0 on PyPI: 00-04 and 05-05 superseded by the v0.3 SDD (`specs/client-v0.3-agui-resume/`, CS3-00-03 / CS3-04-01) |

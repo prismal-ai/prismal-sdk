@@ -1,22 +1,77 @@
 name: Release
 
-# Publishes on any `v*` tag, e.g. v0.1.0. Build and publish both go through
-# uv, driven by pyproject.toml, matching the toolchain ci.yml already uses.
+# Publishes prismal-sdk to PyPI from `main` (SPEC-CS3-REL-001).
+#
+# Every push to `main` (in practice: merging the develop → main PR) runs this
+# workflow. It publishes the version in pyproject.toml when that version is a
+# final release and is not on PyPI yet, then tags `v<version>` and creates the
+# GitHub release. Anything else (a `.devN` version, a version already
+# uploaded) ends green without publishing, so re-runs are harmless.
+#
+# Publishing uses PyPI trusted publishing (OIDC): no token is stored in the
+# repository. PyPI must list this publisher once — owner `prismal-ai`,
+# repository `prismal-sdk`, workflow `release.yml`, environment `pypi`
+# (https://pypi.org/manage/account/publishing/, "pending publisher" while
+# the project does not exist on PyPI yet).
 on:
   push:
-    tags:
-      - v*
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
-  release:
+  plan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.decide.outputs.version }}
+      publish: ${{ steps.decide.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+      - name: Decide whether this version ships
+        id: decide
+        run: |
+          set -euo pipefail
+          version="$(uv version --short)"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          # PEP 440 final releases only: no .devN / aN / bN / rcN / +local.
+          if ! [[ "$version" =~ ^[0-9]+(\.[0-9]+)*(\.post[0-9]+)?$ ]]; then
+            echo "::notice::${version} is not a final release; nothing to publish"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          status="$(curl -s -o /dev/null -w '%{http_code}' \
+            "https://pypi.org/pypi/prismal-sdk/${version}/json")"
+          if [ "$status" = "200" ]; then
+            echo "::notice::prismal-sdk ${version} is already on PyPI; nothing to publish"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          elif [ "$status" = "404" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::PyPI answered ${status} for prismal-sdk ${version}"
+            exit 1
+          fi
+
+  publish:
+    needs: plan
+    if: needs.plan.outputs.publish == 'true'
     runs-on: ubuntu-latest
     environment:
       name: pypi
+      url: https://pypi.org/project/prismal-sdk/${{ needs.plan.outputs.version }}/
     permissions:
-      # Required for PyPI trusted publishing (OIDC) — no long-lived token
-      # lives in the repository secrets.
+      # OIDC token for PyPI trusted publishing.
       id-token: write
-      contents: read
+      # Push the `v<version>` tag and create the GitHub release.
+      contents: write
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -28,18 +83,14 @@ jobs:
       - name: Set up Python
         run: uv python install
 
-      # A tag that disagrees with pyproject.toml would publish a version
-      # nobody asked for, and PyPI uploads are immutable. Fail before build.
-      - name: Verify the tag matches the project version
+      # The tag must not exist yet: PyPI uploads are immutable, and a tag
+      # pointing elsewhere would describe a different artifact.
+      - name: Check the release tag is free
         run: |
-          set -euo pipefail
-          tag_version="${GITHUB_REF_NAME#v}"
-          project_version="$(uv version --short)"
-          if [ "$tag_version" != "$project_version" ]; then
-            echo "::error::tag ${GITHUB_REF_NAME} does not match project version ${project_version}"
+          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" >/dev/null; then
+            echo "::error::tag v${VERSION} already exists but ${VERSION} is not on PyPI"
             exit 1
           fi
-          echo "tag and project version agree: ${project_version}"
 
       - name: Install
         run: uv sync --extra dev --locked
@@ -65,5 +116,14 @@ jobs:
       - name: Smoke test (source distribution)
         run: uv run --isolated --no-project --with dist/*.tar.gz scripts/smoke_test.py
 
-      - name: Publish
+      - name: Publish to PyPI (trusted publishing)
         run: uv publish
+
+      - name: Tag and create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${VERSION}" dist/* \
+            --target "${GITHUB_SHA}" \
+            --title "v${VERSION}" \
+            --notes "prismal-sdk ${VERSION} — https://pypi.org/project/prismal-sdk/${VERSION}/ · see CHANGELOG.md"

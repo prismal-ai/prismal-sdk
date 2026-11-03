@@ -114,3 +114,14 @@ def test_ws_sessions_match():
     assert _public_methods(WsSession) == _public_methods(AsyncWsSession)
     assert {"connect", "send_message", "cancel", "close"} <= _public_methods(WsSession)
     _assert_same_shapes(WsSession, AsyncWsSession, _public_methods(WsSession))
+
+
+# ── v0.3 (CS3-02-02, SPEC-CS3-NFR-001) ──────────────────────────────────────
+
+_V03_CLIENT_METHODS = {"run_agui"}
+
+
+def test_v03_client_methods_exist_on_both_clients():
+    for cls in (PrismalClient, AsyncPrismalClient):
+        assert _V03_CLIENT_METHODS <= _public_methods(cls), cls.__name__
+    _assert_same_shapes(PrismalClient, AsyncPrismalClient, _V03_CLIENT_METHODS)

@@ -39,6 +39,15 @@ check(PrismalClient is not None, "PrismalClient not importable")
 check(AsyncPrismalClient is not None, "AsyncPrismalClient not importable")
 check(issubclass(PrismalSDKError, Exception), "exception root not importable")
 
+# Every name the package exports resolves, and the newest surface is there
+# (v0.3: AG-UI run input and resume, SPEC-CS3-*).
+missing = [n for n in prismal_sdk.__all__ if not hasattr(prismal_sdk, n)]
+check(not missing, f"__all__ names missing from the package: {missing}")
+for client_cls in (PrismalClient, AsyncPrismalClient):
+    check(hasattr(client_cls, "run_agui"), f"{client_cls.__name__}.run_agui missing")
+for name in ("ResumeEntry", "AgUiInterrupt", "ResumeConflictError"):
+    check(name in prismal_sdk.__all__, f"{name} not exported")
+
 # The typing marker must ship, or downstream mypy silently ignores the SDK
 # (SPEC-CSB-NFR-004).
 marker = pathlib.Path(prismal_sdk.__file__).parent / "py.typed"

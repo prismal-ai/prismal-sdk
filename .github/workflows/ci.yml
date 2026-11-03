@@ -4,13 +4,13 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-  # Required for the opt-in `contract` job below, which gates on this event.
+  # Lets the contract job be re-run on demand against a chosen host version.
   workflow_dispatch:
     inputs:
-      server_image:
-        description: "prismal-server image to test against (fake-LLM mode)"
+      server_version:
+        description: "prismal-server version from PyPI to test against (fake-LLM mode)"
         required: false
-        default: "ghcr.io/prismal-ai/prismal-server:0.2.0"
+        default: ""
 
 jobs:
   unit:
@@ -40,26 +40,30 @@ jobs:
 
   contract:
     runs-on: ubuntu-latest
-    # Opt-in: only runs when explicitly dispatched. It is the v0.2 release gate
-    # (DD-CS2-008, CS2-00-04): a prismal-server 0.2 image in fake-LLM mode, so
-    # the suite needs no provider credentials (SPEC-CS2-CTR-001, closes
-    # CSB-05-01). Verified locally against host v0.2.0 (a98467f), the commit
-    # the published 0.2.0 image is built from.
-    if: github.event_name == 'workflow_dispatch'
-    # The host image is private on GHCR: the service pull authenticates with
-    # this run's GITHUB_TOKEN, which needs `packages: read` and read access to
-    # the package for this repo (package settings → Manage Actions access).
-    permissions:
-      contents: read
-      packages: read
-    services:
-      prismal-server:
-        image: ${{ inputs.server_image || 'ghcr.io/prismal-ai/prismal-server:0.2.0' }}
-        credentials:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-        ports:
-          - 8000:8000
+    # The release gate (SPEC-CS3-CTR-001, supersedes CS2-00-04): the published
+    # prismal-server wheel from PyPI, started in fake-LLM mode, so the suite
+    # needs no provider credentials and no private container image. Runs on
+    # every pull request and on dispatch.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    env:
+      PRISMAL_BASE_URL: http://localhost:8000
+      HOST_REQUIREMENT: ${{ inputs.server_version && format('prismal-server=={0}', inputs.server_version) || 'prismal-server>=0.3,<0.4' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+      - name: Set up Python
+        run: uv python install
+      - name: Install
+        run: uv sync --extra dev --extra ws --locked
+      # Its own venv: the host (and the engine it pulls in) needs Python 3.13
+      # and must never leak into the SDK's environment (CLAUDE.md hard rule).
+      - name: Install prismal-server from PyPI
+        run: |
+          uv venv --python 3.13 "$RUNNER_TEMP/host"
+          uv pip install --python "$RUNNER_TEMP/host/bin/python" "$HOST_REQUIREMENT"
+          uv pip list --python "$RUNNER_TEMP/host/bin/python" | grep -i '^prismal'
+      - name: Start prismal-server (fake-LLM mode)
         env:
           PRISMAL_SERVER_HOST_FAKE_LLM_MODE: "true"
           PRISMAL_SERVER_HOST_ENVIRONMENT: development
@@ -69,26 +73,25 @@ jobs:
           # Engine flag: without it the host refuses AG-UI with
           # `protocol_not_enabled` even when HOST_AGUI_ENABLED is true.
           PRISMAL_AGUI_EVENTS_ENABLED: "true"
-        options: >-
-          --health-cmd "curl -fsS http://localhost:8000/healthz || exit 1"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 24
-    env:
-      PRISMAL_BASE_URL: http://localhost:8000
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install uv
-        uses: astral-sh/setup-uv@v3
-      - name: Set up Python
-        run: uv python install
-      - name: Install
-        run: uv sync --extra dev --extra ws --locked
+        run: |
+          nohup "$RUNNER_TEMP/host/bin/uvicorn" prismal_server.app:app \
+            --host 127.0.0.1 --port 8000 > "$RUNNER_TEMP/host.log" 2>&1 &
       # The suite skips (exit 0) when no host answers; in this job a skip
       # would be a false green, so assert the fake-mode host is really up.
       - name: Assert fake-LLM host is up
         run: |
-          curl -fsS -D - -o /dev/null "$PRISMAL_BASE_URL/healthz" \
-            | grep -i '^x-prismal-fake-llm: 1'
+          for _ in $(seq 1 60); do
+            if curl -fsS -D - -o /dev/null "$PRISMAL_BASE_URL/healthz" \
+                | grep -qi '^x-prismal-fake-llm: 1'; then
+              echo "fake-LLM host is up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::prismal-server did not come up in fake-LLM mode"
+          cat "$RUNNER_TEMP/host.log"
+          exit 1
       - name: Contract suite
         run: uv run pytest -m contract
+      - name: Host log
+        if: always()
+        run: cat "$RUNNER_TEMP/host.log" || true

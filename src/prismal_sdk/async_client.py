@@ -10,7 +10,7 @@ Both expose the same public surface (SPEC-CSB-NFR-001); this module is the
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from datetime import datetime
 from types import TracebackType
 from typing import Any, Literal, overload
@@ -27,7 +27,14 @@ from prismal_sdk._a2a_methods import (
     version_from_card,
     version_headers,
 )
-from prismal_sdk._chat import check_negotiated, stream_profile
+from prismal_sdk._chat import (
+    AGUI_RUN_HEADERS,
+    AGUI_RUN_PATH,
+    AgUiTranslator,
+    check_negotiated,
+    run_agent_input,
+    stream_profile,
+)
 from prismal_sdk._sse import aiter_sse_events
 from prismal_sdk._transport import (
     backoff_delay_s,
@@ -49,7 +56,7 @@ from prismal_sdk.admin import (
     TenantSummary,
     raise_for_admin_response,
 )
-from prismal_sdk.agui import AgUiEvent, StreamProtocol
+from prismal_sdk.agui import AgUiEvent, ResumeEntry, RunFinished, StreamProtocol
 from prismal_sdk.config import DEFAULT_BASE_URL, ClientConfig
 from prismal_sdk.exceptions import A2ANotEnabledError, PrismalAPIError, error_for_code
 from prismal_sdk.models import (
@@ -495,6 +502,55 @@ class AsyncPrismalClient:
             # A transport failure mid-stream must surface as an SDK error, not
             # a raw httpx type (SPEC-CSB-ERR-003/004). The stream is never
             # retried (SPEC-CSB-RSL-002).
+            raise wrap_transport_exception(exc) from exc
+
+    async def run_agui(
+        self,
+        thread_id: str,
+        content: str | None = None,
+        *,
+        resume: Sequence[ResumeEntry] | None = None,
+        run_id: str | None = None,
+        org_id: str | None = None,
+    ) -> AsyncIterator[AgUiEvent]:
+        """Run an AG-UI turn from a ``RunAgentInput`` (``POST /v1/agui``).
+
+        Pass ``content`` to start a run, or ``resume`` to answer the open
+        interrupts of an interrupted one — exactly one of them, otherwise
+        ``ValueError`` before any I/O (SPEC-CS3-RUN-002)::
+
+            events = [e async for e in client.run_agui(thread_id, "Deploy it")]
+            finished = events[-1]
+            if finished.is_interrupted:
+                answers = [i.resolve({"ok": True}) for i in finished.interrupts]
+                events = client.run_agui(thread_id, resume=answers)
+
+        Yields AG-UI events like ``send_message(protocol="ag-ui")``, ending
+        with ``RunFinished``; a ``RUN_ERROR`` raises the mapped exception and a
+        refusal raises before any event (``ResumeConflictError`` for
+        ``409 no_pending_interrupt`` / ``resume_in_progress``). ``run_id``
+        defaults to a fresh uuid4 hex. Never retried (SPEC-CS3-RUN-005): a
+        resume may already have run, so re-sending it is the caller's call.
+        """
+        body = run_agent_input(thread_id, content, resume, run_id)
+        headers = {**self._headers(org_id), **AGUI_RUN_HEADERS}
+        translate = AgUiTranslator()
+        try:
+            async with self._client.stream(
+                "POST", AGUI_RUN_PATH, json=body, headers=headers
+            ) as response:
+                if not response.is_success:
+                    await response.aread()
+                    raise_for_response(response)
+                async for event_name, data in aiter_sse_events(response.aiter_lines()):
+                    parsed = translate(event_name, data)
+                    if parsed is None:
+                        continue
+                    yield parsed
+                    if isinstance(parsed, RunFinished):
+                        return
+        except httpx.HTTPError as exc:
+            # Never retried, connect failures included (SPEC-CS3-RUN-005).
             raise wrap_transport_exception(exc) from exc
 
     async def usage(
