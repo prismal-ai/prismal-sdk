@@ -4,9 +4,12 @@ All notable changes to `prismal-sdk`. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — 0.3.0
+## [Unreleased]
 
-Targets `prismal-server` 0.3 (`specs/client-v0.3-agui-resume/`). Includes
+## [0.3.0] — 2026-11-02
+
+First release published to PyPI (v0.1.0 was tagged, but its upload never
+happened). Targets `prismal-server` 0.3 (`specs/client-v0.3-agui-resume/`). Includes
 everything listed under 0.2.0 below, which was never tagged on its own.
 
 ### Added
@@ -26,6 +29,10 @@ everything listed under 0.2.0 below, which was never tagged on its own.
 
 ### Changed
 
+- Releases publish from `main`: `.github/workflows/release.yml` uploads a
+  final version that is not on PyPI yet (trusted publishing, environment
+  `pypi`), then tags `v<version>` and creates the GitHub release. It no
+  longer runs on tag pushes.
 - CI's `contract` job installs `prismal-server` (0.3.x) from PyPI and starts
   it in fake-LLM mode on every pull request, replacing the private container
   image.

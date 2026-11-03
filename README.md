@@ -9,22 +9,27 @@ business-logic-free client, not a second copy of the engine.
 
 ## Status
 
-**v0.2.0 in development (`0.2.0.dev0`).** On top of the released v0.1.0
-(threads, SSE chat, A2A v0.3), v0.2 adds per-turn **usage** and the
-usage/budget reads, **AG-UI 1.0** streaming, **WebSocket** sessions with
-cancellation, **A2A v1.0** (negotiation, `ListTasks`) and the **admin**
-reports of `prismal-server` 0.2 — all implemented and unit-tested offline
-against the documented wire contract (≈ 560 tests, 98% branch coverage). See
+**v0.3.0** — targets `prismal-server` 0.3. On top of v0.1 (threads, SSE chat,
+A2A v0.3), it adds per-turn **usage** and the usage/budget reads, **AG-UI
+1.0** streaming and **interrupt resume** (`run_agui`), **WebSocket** sessions
+with cancellation, **A2A v1.0** (negotiation, `ListTasks`) and the **admin**
+reports. Unit-tested offline against the documented wire contract (≈ 640
+tests, 98% branch coverage), and the `contract` suite runs in CI on every pull
+request against `prismal-server` from PyPI in fake-LLM mode. See
 [`CHANGELOG.md`](./CHANGELOG.md).
 
-`v0.2.0` is not tagged yet: the release gate is the `contract` suite running
-green against a `prismal-server` 0.2 image in fake-LLM mode, and that host
-release has not shipped. The v0.2 SDD lives under
+```bash
+pip install prismal-sdk          # or: pip install 'prismal-sdk[ws]' for client.ws()
+```
+
+SDDs: v0.3 in [`specs/client-v0.3-agui-resume/`](./specs/client-v0.3-agui-resume/)
+([`SPEC`](./specs/client-v0.3-agui-resume/SPEC.md) ·
+[`TASKS`](./specs/client-v0.3-agui-resume/TASKS.md)); v0.2 in
 [`specs/client-v0.2-usage-agui/`](./specs/client-v0.2-usage-agui/)
 ([`PLAN`](./specs/client-v0.2-usage-agui/PLAN.md) ·
 [`ARCHITECTURE`](./specs/client-v0.2-usage-agui/ARCHITECTURE.md) ·
 [`SPEC`](./specs/client-v0.2-usage-agui/SPEC.md) ·
-[`TASKS`](./specs/client-v0.2-usage-agui/TASKS.md)); v0.1's under
+[`TASKS`](./specs/client-v0.2-usage-agui/TASKS.md)); v0.1 in
 [`specs/client-sdk-bootstrap/`](./specs/client-sdk-bootstrap/).
 
 ## Why this exists
@@ -162,15 +167,16 @@ uv run mypy src
 The unit suite runs fully offline against `httpx.MockTransport` fakes and an
 in-process WebSocket server; the `contract` suite (deselected by default)
 round-trips against a real `prismal-server` and skips when none answers.
-The v0.2 part (`tests/contract/test_v02_contract.py`) needs a 0.2 host in
-**fake-LLM mode** — deterministic answers, no provider credentials:
+The v0.2 and v0.3 parts (`tests/contract/test_v0{2,3}_contract.py`) need a
+0.3 host in **fake-LLM mode** — deterministic answers, no provider
+credentials. The published wheel is enough (it needs Python 3.13, so keep it
+in its own venv):
 
 ```bash
-# in a prismal-server checkout (0.2)
-uv pip install -e ".[dev]"
+uv venv --python 3.13 /tmp/host && uv pip install --python /tmp/host/bin/python 'prismal-server>=0.3,<0.4'
 PRISMAL_SERVER_HOST_FAKE_LLM_MODE=true PRISMAL_SERVER_HOST_WS_ENABLED=true \
 PRISMAL_SERVER_HOST_AGUI_ENABLED=true PRISMAL_AGUI_EVENTS_ENABLED=true \
-PRISMAL_SERVER_HOST_ADMIN_ENABLED=true uvicorn prismal_server.app:app
+PRISMAL_SERVER_HOST_ADMIN_ENABLED=true /tmp/host/bin/uvicorn prismal_server.app:app
 
 # here (the WebSocket turn needs the [ws] extra)
 PRISMAL_BASE_URL=http://localhost:8000 uv run --extra ws pytest -m contract
@@ -181,8 +187,24 @@ composes no inbound A2A handler) and the admin `200` bodies (set
 `PRISMAL_ADMIN_TOKEN` to a token holding `prismal:admin`; without it the
 suite checks that each admin read raises `ForbiddenError`).
 
-CI runs the same suite against the published image on demand
-(`workflow_dispatch`, job `contract`).
+CI runs the same suite on every pull request (job `contract`): it installs
+`prismal-server` from PyPI and starts it exactly like this. Dispatch the `CI`
+workflow with `server_version` to pin another host version.
+
+## Releasing
+
+Releases ship from `main` (`.github/workflows/release.yml`). Set the final
+version in `pyproject.toml` **and** `src/prismal_sdk/__init__.py`, update
+`CHANGELOG.md`, and merge `develop` into `main`. The workflow publishes to
+PyPI with trusted publishing when that version is not on PyPI yet, then tags
+`v<version>` and creates the GitHub release; a `.devN` version or an
+already-published one ends green without uploading.
+
+One-time PyPI setup (maintainer account): add a trusted publisher — a
+*pending* publisher until the project exists — at
+<https://pypi.org/manage/account/publishing/> with project `prismal-sdk`,
+owner `prismal-ai`, repository `prismal-sdk`, workflow `release.yml`,
+environment `pypi`.
 
 ## The contract with the host
 
@@ -199,6 +221,7 @@ source:
 - v0.2: `GET /v1/usage`, `GET /v1/budget`, `GET /v1/admin/*`,
   `GET /ws/threads/{id}` (WebSocket), and AG-UI on the chat route via
   `Accept: text/event-stream; profile=ag-ui`.
+- v0.3: `POST /v1/agui` (AG-UI `RunAgentInput`, including `resume`).
 - `Authorization: Bearer` (+ optional `X-Org-Id`) — the only two
   prismal-specific headers.
 - `GET /openapi.json` — available for verifying the SDK's hand-written
@@ -206,8 +229,8 @@ source:
 
 ## Related repos
 
-- [`prismal-ai/prismal`](https://github.com/prismal-ai/prismal) — the engine (v3.10.1, 21/21 specs).
-- [`prismal-ai/prismal-server`](https://github.com/prismal-ai/prismal-server) — the reference host this SDK talks to (v0.1 — reference host bootstrap complete).
+- [`prismal-ai/prismal`](https://github.com/prismal-ai/prismal) — the engine (tested through host 0.3, engine 3.22.1).
+- [`prismal-ai/prismal-server`](https://github.com/prismal-ai/prismal-server) — the reference host this SDK talks to (0.3.0 on PyPI).
 - [`prismal-ai/prisma-notebooks`](https://github.com/prismal-ai/prisma-notebooks) — example notebooks against the engine directly (not this SDK).
 
 ## License

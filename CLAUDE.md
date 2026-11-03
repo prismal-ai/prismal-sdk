@@ -11,10 +11,12 @@ v0.3 / v1.0 JSON-RPC surface. It ships two mirrored clients, `PrismalClient`
 (sync) and `AsyncPrismalClient` (async), both over `httpx` (plus the
 optional `websockets` extra for `client.ws()`).
 
-The design lives in two SDDs — v0.1 in
-[`specs/client-sdk-bootstrap/`](./specs/client-sdk-bootstrap/) and v0.2 in
+The design lives in three SDDs — v0.1 in
+[`specs/client-sdk-bootstrap/`](./specs/client-sdk-bootstrap/), v0.2 in
 [`specs/client-v0.2-usage-agui/`](./specs/client-v0.2-usage-agui/) (`PLAN.md` ·
-`ARCHITECTURE.md` · `SPEC.md` · `TASKS.md`). Read those before implementing.
+`ARCHITECTURE.md` · `SPEC.md` · `TASKS.md`) and v0.3 (AG-UI resume) in
+[`specs/client-v0.3-agui-resume/`](./specs/client-v0.3-agui-resume/) (`SPEC.md` ·
+`TASKS.md`). Read those before implementing.
 
 ## The one hard rule — a client, not a co-host
 
@@ -32,6 +34,7 @@ against their source:
 | A2A (`GET /.well-known/agent-card.json`, `POST /a2a`) | same, §4, standard A2A v0.3.x |
 | Auth (`Authorization: Bearer`, `X-Org-Id`) | same, §5/§6, §9 (SDK contract) |
 | v0.2: usage/budget, AG-UI, WebSocket, A2A v1.0, admin reads, fake-LLM mode | `prismal-server/specs/host-v0.2-usage-gateways-agui/SPEC.md` (`SPEC-RH2-*`); protocol pins in `prismal/docs/adr/ADR-PRT-001-protocol-pins.md` |
+| v0.3: AG-UI `RunAgentInput` + interrupt resume (`POST /v1/agui`) | `prismal-server/specs/host-v0.3-agui-resume/DESIGN.md` §3, `prismal-server/docs/agui.md` |
 
 Adding a dependency on `prismal-ai` or `prismal-server`, embedding a local
 copy of engine/host logic, or growing the SDK beyond typed transport
@@ -45,7 +48,7 @@ transient network errors) is a bug.
       green.
 - [ ] `PrismalClient` and `AsyncPrismalClient` expose the same public method
       names and parameter shapes (parity test).
-- [ ] New capability traces to a `SPEC-CSB-*` / `SPEC-CS2-*` requirement — if the wire
+- [ ] New capability traces to a `SPEC-CSB-*` / `SPEC-CS2-*` / `SPEC-CS3-*` requirement — if the wire
       contract needs to change, that change is negotiated in
       `prismal-server` first, not invented here.
 - [ ] No secret (`token`) ever appears in a log line, exception message, or
@@ -65,7 +68,7 @@ transient network errors) is a bug.
 ```bash
 uv pip install -e ".[dev]"
 uv run pytest                      # unit (no network)
-uv run pytest -m contract          # opt-in: against a running prismal-server
+uv run pytest -m contract          # opt-in: against a running prismal-server (CI: every PR, host from PyPI)
 uv run ruff check . && uv run ruff format --check .
 uv run mypy src
 ```
