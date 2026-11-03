@@ -11,7 +11,8 @@ Internal module (leading underscore) — not part of the public API.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping
+import uuid
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, NamedTuple
 
 import httpx
@@ -20,6 +21,7 @@ from prismal_sdk._sse import DEFAULT_EVENT
 from prismal_sdk.agui import (
     AgUiEvent,
     PrismalUsageEvent,
+    ResumeEntry,
     RunError,
     RunFinished,
     parse_agui_event,
@@ -163,3 +165,45 @@ def check_negotiated(profile: StreamProfile, response: httpx.Response) -> None:
             f"Host did not negotiate {profile.negotiated!r} "
             f"({STREAM_PROTOCOL_HEADER}: {got or 'absent'})",
         )
+
+
+# ── POST /v1/agui (SPEC-CS3-RUN-*) ─────────────────────────────────────────
+
+#: Host route that takes an AG-UI 1.0 ``RunAgentInput``.
+AGUI_RUN_PATH = "/v1/agui"
+
+#: Request headers of a ``run_agui`` call (on top of auth / tenancy).
+AGUI_RUN_HEADERS = {"Accept": "text/event-stream"}
+
+
+def run_agent_input(
+    thread_id: str,
+    content: str | None,
+    resume: Sequence[ResumeEntry] | None,
+    run_id: str | None,
+) -> dict[str, Any]:
+    """The ``RunAgentInput`` body for ``run_agui`` (RUN-001..003, RUN-006).
+
+    Raises ``ValueError`` unless exactly one of ``content`` and a non-empty
+    ``resume`` is given, so a bad call fails before any I/O (RUN-002).
+    """
+    if (content is None) == (not resume):
+        raise ValueError(
+            "run_agui takes exactly one of content= or a non-empty resume="
+        )
+    body: dict[str, Any] = {
+        "threadId": thread_id,
+        "runId": run_id if run_id is not None else uuid.uuid4().hex,
+        "messages": [],
+        "tools": [],
+        "context": [],
+        "state": {},
+        "forwardedProps": {},
+    }
+    if resume:
+        body["resume"] = [entry.to_wire() for entry in resume]
+    else:
+        body["messages"] = [
+            {"id": uuid.uuid4().hex, "role": "user", "content": content}
+        ]
+    return body

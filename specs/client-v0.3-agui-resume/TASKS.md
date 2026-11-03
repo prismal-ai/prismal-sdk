@@ -30,8 +30,8 @@ Host: `prismal-server` 0.3.0 (PyPI), engine `prismal-ai` 3.22.1.
 
 | ID | Task | SPEC | Status |
 |---|---|---|---|
-| CS3-02-01 | `PrismalClient.run_agui` / `AsyncPrismalClient.run_agui` | RUN-001..006 | `TODO` |
-| CS3-02-02 | Replay the vendored fixture offline; parity test names `run_agui` | FIX-001, NFR-001 | `TODO` |
+| CS3-02-01 | `PrismalClient.run_agui` / `AsyncPrismalClient.run_agui` | RUN-001..006 | `DONE` |
+| CS3-02-02 | Replay the vendored fixture offline; parity test names `run_agui` | FIX-001, NFR-001 | `DONE` |
 
 ## Phase 3 — Contract, docs
 
