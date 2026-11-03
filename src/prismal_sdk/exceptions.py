@@ -130,7 +130,8 @@ class A2AAgentUnavailableError(PrismalAPIError):
 class ValidationError(PrismalAPIError):
     """422 — server-side validation failed.
 
-    Codes: ``validation_error``, ``invalid_thread_id``, ``invalid_input``.
+    Codes: ``validation_error``, ``invalid_thread_id``, ``invalid_input``,
+    and on an AG-UI resume ``invalid_resume`` / ``unsupported_resume``.
     """
 
 
@@ -168,6 +169,18 @@ class AdminDisabledError(PrismalAPIError):
     """404 — admin routes are disabled on the host (``admin_disabled``)."""
 
 
+# ── Host v0.3 codes (SPEC-CS3-ERR-001; AG-UI interrupt resume) ────────────
+
+
+class ResumeConflictError(PrismalAPIError):
+    """409 — an AG-UI resume the thread cannot take right now.
+
+    Codes: ``no_pending_interrupt`` (nothing to resume, or the interrupt was
+    already answered — a retried resume gets this) and ``resume_in_progress``
+    (another resume of the thread is still running). Never retried by the SDK.
+    """
+
+
 # code (from the response body) -> exception class. Unmapped codes, or a
 # missing/non-JSON error body, fall back to the base PrismalAPIError
 # (SPEC-CSB-ERR-002).
@@ -189,6 +202,11 @@ _ERROR_CODE_MAP: dict[str, type[PrismalAPIError]] = {
     "invalid_thread_id": ValidationError,
     "invalid_input": ValidationError,
     "forbidden": ForbiddenError,
+    # Host v0.3.0, AG-UI resume on POST /v1/agui (SPEC-CS3-ERR-001).
+    "no_pending_interrupt": ResumeConflictError,
+    "resume_in_progress": ResumeConflictError,
+    "invalid_resume": ValidationError,
+    "unsupported_resume": ValidationError,
 }
 
 

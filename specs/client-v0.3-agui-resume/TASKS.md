@@ -23,8 +23,8 @@ Host: `prismal-server` 0.3.0 (PyPI), engine `prismal-ai` 3.22.1.
 
 | ID | Task | SPEC | Status |
 |---|---|---|---|
-| CS3-01-01 | `AgUiInterrupt`, `ResumeEntry`, `RunFinished.interrupts` / `is_interrupted` | INT-001..005 | `TODO` |
-| CS3-01-02 | `ResumeConflictError`; map the four resume codes | ERR-001 | `TODO` |
+| CS3-01-01 | `AgUiInterrupt`, `ResumeEntry`, `RunFinished.interrupts` / `is_interrupted` | INT-001..005 | `DONE` |
+| CS3-01-02 | `ResumeConflictError`; map the four resume codes | ERR-001 | `DONE` |
 
 ## Phase 2 — `run_agui`
 
