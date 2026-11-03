@@ -10,7 +10,7 @@ connection that runs many turns of the same thread, one at a time, and can
 `httpx` + `pydantic`:
 
 ```bash
-pip install 'prismal-sdk[ws]'
+pip install 'prismal-ai-sdk[ws]'
 ```
 
 Without it, `client.ws()` raises `WebSocketUnavailableError` (also an

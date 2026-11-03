@@ -87,7 +87,7 @@ def test_missing_websockets_raises_unavailable_with_install_hint(monkeypatch):
             client.ws("t-1")
     assert isinstance(info.value, ImportError)
     assert isinstance(info.value, PrismalSDKError)
-    assert "prismal-sdk[ws]" in str(info.value)
+    assert "prismal-ai-sdk[ws]" in str(info.value)
 
 
 def test_importing_the_sdk_does_not_import_websockets():

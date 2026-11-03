@@ -45,8 +45,8 @@ Host: `prismal-server` 0.3.0 (PyPI), engine `prismal-ai` 3.22.1.
 | ID | Task | SPEC | Status |
 |---|---|---|---|
 | CS3-04-01 | Version 0.3.0; publish workflow on `main` (trusted publishing, skip-if-published, tag after upload) | REL-001 | `DONE` — `release.yml` runs on `main` (and dispatch); GitHub environment `pypi` restricted to `main`; smoke test checks the v0.3 surface |
-| CS3-04-02 | CI green on the PR to `develop`; PR `develop` → `main` | — | `TODO` |
-| CS3-04-03 | Register the PyPI pending publisher (owner `prismal-ai`, repo `prismal-sdk`, workflow `release.yml`, environment `pypi`) — needs the maintainer's PyPI account | REL-001 | `TODO` |
+| CS3-04-02 | CI green on the PR to `develop`; PR `develop` → `main` | — | `DONE` — PR #2 merged to `develop`; release PR #3 open |
+| CS3-04-03 | Register the PyPI pending publisher (project `prismal-ai-sdk`, owner `prismal-ai`, repo `prismal-sdk`, workflow `release.yml`, environment `pypi`) — needs the maintainer's PyPI account | REL-001 | `DONE` — registered 2026-11-03 as `prismal-ai-sdk` (`prismal-sdk` refused as too similar to `prismai-sdk`) |
 
 ## Definition of Done (v0.3)
 

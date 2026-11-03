@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "prismal-sdk"
+name = "prismal-ai-sdk"
 version = "0.3.0"
 description = "Typed Python client (REST + SSE, A2A JSON-RPC) for prismal-server."
 readme = "README.md"

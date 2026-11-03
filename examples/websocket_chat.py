@@ -2,7 +2,7 @@
 
 Needs the optional extra and a host with ``host_ws_enabled=true``:
 
-    pip install 'prismal-sdk[ws]'
+    pip install 'prismal-ai-sdk[ws]'
     python examples/websocket_chat.py
 """
 

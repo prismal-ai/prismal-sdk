@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `prismal-sdk`. The format follows
+All notable changes to `prismal-sdk` (PyPI distribution `prismal-ai-sdk`). The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
@@ -11,6 +11,12 @@ All notable changes to `prismal-sdk`. The format follows
 First release published to PyPI (v0.1.0 was tagged, but its upload never
 happened). Targets `prismal-server` 0.3 (`specs/client-v0.3-agui-resume/`). Includes
 everything listed under 0.2.0 below, which was never tagged on its own.
+
+### Changed
+
+- **The PyPI distribution is named `prismal-ai-sdk`**
+  (`pip install prismal-ai-sdk`). PyPI refuses `prismal-sdk` as too similar
+  to the existing `prismai-sdk`. The import module is still `prismal_sdk`.
 
 ### Added
 
@@ -61,7 +67,7 @@ behaviour, and the base install adds no dependency.
   returning an empty run. See `docs/agui.md`.
 - **WebSocket.** `client.ws(thread_id)` → `WsSession` / `AsyncWsSession`
   with `send_message` (native or AG-UI), `cancel` and `close`. It is optional,
-  installed with `pip install 'prismal-sdk[ws]'`, which adds
+  installed with `pip install 'prismal-ai-sdk[ws]'`, which adds
   `websockets>=13.0`. See `docs/websocket.md`.
 - **A2A v1.0.**
   - The `a2a_protocol="0.3" | "1.0" | "auto"` client option

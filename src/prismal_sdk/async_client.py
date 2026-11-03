@@ -688,7 +688,7 @@ class AsyncPrismalClient:
     def ws(self, thread_id: str, *, org_id: str | None = None) -> AsyncWsSession:
         """A WebSocket session on ``/ws/threads/{thread_id}`` (SPEC-CS2-WSK-001).
 
-        Needs the optional extra (``pip install 'prismal-sdk[ws]'``);
+        Needs the optional extra (``pip install 'prismal-ai-sdk[ws]'``);
         without it this raises
         :class:`~prismal_sdk.exceptions.WebSocketUnavailableError`. The
         handshake carries the same ``Authorization`` / ``X-Org-Id`` headers
